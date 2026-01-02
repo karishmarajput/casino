@@ -1,0 +1,727 @@
+.transaction-container {
+  padding: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transaction-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+.transaction-form-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transaction-history-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-title {
+  color: #d4af37;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 55, 0.5);
+  font-weight: 900;
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.transaction-card {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(15px);
+  border: 2px solid #d4af37;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 55, 0.2);
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.transaction-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transaction-card::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.transaction-card::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.5);
+  border-radius: 4px;
+}
+
+.transaction-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.7);
+}
+
+.transaction-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background-image: 
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="10" y="50" font-size="40" fill="rgba(212,175,55,0.1)">♠</text><text x="60" y="80" font-size="40" fill="rgba(212,175,55,0.1)">♥</text></svg>');
+  background-size: 150px 150px;
+  opacity: 0.3;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  position: relative;
+  z-index: 1;
+}
+
+.form-group.dropdown-active {
+  z-index: 1001;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  color: #d4af37;
+  font-size: 1.1rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.dropdown-container {
+  position: relative;
+  z-index: 1000;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #d4af37;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  border: 2px solid #d4af37;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1002;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.8);
+}
+
+.dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dropdown::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.dropdown::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.5);
+  border-radius: 4px;
+}
+
+.dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.7);
+}
+
+.dropdown-item {
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: #fff;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.dropdown-item:hover {
+  background-color: rgba(212, 175, 55, 0.2);
+  color: #d4af37;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #d4af37;
+}
+
+.select-all-item {
+  font-weight: 700;
+  background-color: rgba(212, 175, 55, 0.15);
+  border-bottom: 2px solid rgba(212, 175, 55, 0.5);
+}
+
+.select-all-item:hover {
+  background-color: rgba(212, 175, 55, 0.25);
+}
+
+.select-all-text {
+  color: #d4af37;
+}
+
+.dropdown-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdown-item.disabled:hover {
+  background-color: transparent;
+  color: #fff;
+}
+
+.selected-user {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(212, 175, 55, 0.2);
+  border: 1px solid #d4af37;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #d4af37;
+  font-weight: 600;
+}
+
+.selected-users {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  border-radius: 6px;
+}
+
+.selected-users-label {
+  font-size: 0.85rem;
+  color: #d4af37;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.selected-users-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.selected-user-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: rgba(212, 175, 55, 0.3);
+  border: 1px solid #d4af37;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #d4af37;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.selected-user-tag:hover {
+  background: rgba(212, 175, 55, 0.5);
+  transform: scale(1.05);
+}
+
+.selected-user-tag::after {
+  content: ' ×';
+  margin-left: 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.form-group input[type="number"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #d4af37;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.form-group input[type="number"]:focus {
+  outline: none;
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #d4af37 0%, #ffd700 100%);
+  color: #000;
+  border: 3px solid #ffd700;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6);
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.submit-btn:disabled::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 3px solid rgba(0, 0, 0, 0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.message {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-weight: 600;
+  border: 2px solid;
+}
+
+.message.success {
+  background: rgba(40, 167, 69, 0.2);
+  color: #90ee90;
+  border-color: #28a745;
+  position: relative;
+  overflow: hidden;
+}
+
+.message.success.animate-success {
+  animation: successPulse 0.6s ease-out, successShine 1.5s ease-in-out;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.6), 0 0 40px rgba(212, 175, 55, 0.4);
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes successShine {
+  0% {
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.8), 0 0 60px rgba(212, 175, 55, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.6), 0 0 40px rgba(212, 175, 55, 0.4);
+  }
+}
+
+.success-sparkles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.success-sparkles::before,
+.success-sparkles::after {
+  content: '✨';
+  position: absolute;
+  font-size: 1.5rem;
+  animation: sparkle 1.5s ease-out infinite;
+}
+
+.success-sparkles::before {
+  top: 10%;
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.success-sparkles::after {
+  top: 20%;
+  right: 20%;
+  animation-delay: 0.3s;
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1) rotate(180deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0) rotate(360deg);
+  }
+}
+
+.money-transfer-animation {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  pointer-events: none;
+  animation: moneyTransferFadeIn 0.3s ease-in, moneyTransferFadeOut 0.3s ease-out 2.7s;
+}
+
+.coin-animation {
+  position: relative;
+  width: 200px;
+  height: 400px;
+}
+
+.coin {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle, #ffd700 0%, #d4af37 50%, #b8860b 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #000;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.8), inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+  left: 50%;
+  transform: translateX(-50%);
+  animation: coinFall 2s ease-in forwards;
+}
+
+.coin-1 {
+  animation-delay: 0s;
+  top: -20px;
+}
+
+.coin-2 {
+  animation-delay: 0.2s;
+  top: -20px;
+  left: 30%;
+}
+
+.coin-3 {
+  animation-delay: 0.4s;
+  top: -20px;
+  left: 70%;
+}
+
+.coin-4 {
+  animation-delay: 0.6s;
+  top: -20px;
+  left: 20%;
+}
+
+.coin-5 {
+  animation-delay: 0.8s;
+  top: -20px;
+  left: 80%;
+}
+
+@keyframes moneyTransferFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes moneyTransferFadeOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+}
+
+@keyframes coinFall {
+  0% {
+    transform: translateX(-50%) translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-50%) translateY(200px) rotate(180deg) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(400px) rotate(360deg) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.message.error {
+  background: rgba(220, 53, 69, 0.2);
+  color: #ff6b6b;
+  border-color: #dc3545;
+}
+
+.history-title {
+  color: #d4af37;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.transaction-history {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(15px);
+  border: 2px solid #d4af37;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8), 0 0 20px rgba(212, 175, 55, 0.2);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  position: relative;
+}
+
+.transaction-history::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transaction-history::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.transaction-history::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.5);
+  border-radius: 4px;
+}
+
+.transaction-history::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.7);
+}
+
+.transaction-history::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: 
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="10" y="50" font-size="40" fill="rgba(212,175,55,0.1)">♠</text><text x="60" y="80" font-size="40" fill="rgba(212,175,55,0.1)">♥</text></svg>');
+  background-size: 150px 150px;
+  opacity: 0.3;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.transaction-item {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  word-wrap: break-word;
+}
+
+.transaction-item.new-transaction {
+  animation: slideInFromRight 0.6s ease-out, highlightNew 2s ease-in-out;
+  border-color: #d4af37;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-5px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes highlightNew {
+  0% {
+    background: rgba(212, 175, 55, 0.3);
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.7);
+  }
+  50% {
+    background: rgba(212, 175, 55, 0.2);
+    border-color: #d4af37;
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+  }
+  100% {
+    background: rgba(0, 0, 0, 0.5);
+    border-color: rgba(212, 175, 55, 0.3);
+    box-shadow: none;
+  }
+}
+
+.transaction-item:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: #d4af37;
+  transform: translateX(5px);
+}
+
+.transaction-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.transaction-label {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-game-name {
+  color: #d4af37;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.transaction-amount {
+  color: #d4af37;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.transaction-date {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.no-transactions {
+  text-align: center;
+  color: rgba(212, 175, 55, 0.7);
+  font-style: italic;
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1024px) {
+  .transaction-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .transaction-container {
+    height: auto;
+    overflow-y: auto;
+  }
+}
+

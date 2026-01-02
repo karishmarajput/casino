@@ -1,0 +1,167 @@
+.flush-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 200px);
+  padding: 2rem;
+}
+
+.flush-card {
+  background: rgba(212, 175, 55, 0.15);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(212, 175, 55, 0.5);
+  border-radius: 16px;
+  padding: 3rem;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.3);
+  text-align: center;
+}
+
+.flush-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.flush-title {
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.flush-warning {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.flush-list {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 1.5rem 0;
+  padding-left: 2rem;
+  line-height: 2;
+}
+
+.flush-list li {
+  margin-bottom: 0.5rem;
+}
+
+.flush-warning-text {
+  color: #ff6b6b;
+  font-size: 1.2rem;
+  margin: 2rem 0;
+  font-weight: 600;
+}
+
+.flush-confirm-section {
+  margin: 2rem 0;
+  text-align: left;
+}
+
+.flush-label {
+  display: block;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.flush-input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid rgba(212, 175, 55, 0.5);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+.flush-input:focus {
+  outline: none;
+  border-color: #d4af37;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.flush-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.flush-error {
+  color: #ff6b6b;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.flush-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.flush-btn {
+  padding: 1rem 2rem;
+  border: 2px solid rgba(212, 175, 55, 0.5);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.cancel-btn {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(212, 175, 55, 0.8);
+}
+
+.flush-btn-danger {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+.flush-btn-danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.3);
+  border-color: #ff6b6b;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.flush-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .flush-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .flush-title {
+    font-size: 2rem;
+  }
+
+  .flush-actions {
+    flex-direction: column;
+  }
+
+  .flush-btn {
+    width: 100%;
+  }
+}
+
