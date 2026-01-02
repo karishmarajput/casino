@@ -117,10 +117,13 @@ function ClientDashboard() {
 
   const fetchTotalFamilyBalance = async () => {
     try {
-      const response = await baseAxios.get('/api/users/ranking');
-      const rankings = response.data;
-      const total = rankings.reduce((sum, user) => sum + parseInt(user.balance || 0), 0);
-      setTotalFamilyBalance(total);
+      const clientUser = localStorage.getItem('clientUser');
+      if (!clientUser) return;
+      
+      const userData = JSON.parse(clientUser);
+      const response = await baseAxios.get(`/api/client/users/${userData.id}/family-balance`);
+      const familyTotal = response.data.familyTotal || 0;
+      setTotalFamilyBalance(familyTotal);
     } catch (error) {
       console.error('Error fetching total family balance:', error);
     }
@@ -211,7 +214,7 @@ function ClientDashboard() {
             <div className="client-stat-icon">👨‍👩‍👧‍👦</div>
             <div className="client-stat-content">
               <div className="client-stat-label">Total Family Balance</div>
-              <div className="client-stat-value">${totalFamilyBalance.toFixed(2)}</div>
+              <div className="client-stat-value">${parseInt(totalFamilyBalance)}</div>
             </div>
           </div>
         </div>

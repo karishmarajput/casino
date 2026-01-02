@@ -227,11 +227,6 @@ const userService = {
           return resolve({ id: user.id, name: user.name, balance: user.balance });
         }
         
-        // Check hashed password
-        const storedName = user.name.trim();
-        const firstWord = storedName.split(/\s+/)[0];
-        const expectedPassword = `${firstWord}123`;
-        
         if (bcrypt.compareSync(password, user.password)) {
           resolve({ id: user.id, name: user.name, balance: user.balance });
         } else {
@@ -243,10 +238,53 @@ const userService = {
 
   getUserById: (userId) => {
     return new Promise((resolve, reject) => {
-      db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
+      db.get("SELECT id, name, balance, is_captain, captain_id FROM users WHERE id = ?", [userId], (err, user) => {
         if (err) return reject(err);
         if (!user) return reject({ error: 'User not found' });
         resolve(user);
+      });
+    });
+  },
+
+  getUserFamilyBalance: (userId) => {
+    return new Promise((resolve, reject) => {
+      db.get("SELECT id, name, balance, is_captain, captain_id FROM users WHERE id = ?", [userId], (err, user) => {
+        if (err) return reject(err);
+        if (!user) return reject({ error: 'User not found' });
+
+        let captainId;
+        
+        if (user.is_captain === 1) {
+          captainId = user.id;
+        } else if (user.captain_id) {
+          captainId = user.captain_id;
+        } else {
+          return resolve({ familyTotal: Math.round(user.balance || 0) });
+        }
+
+        db.all(
+          `SELECT 
+            c.balance as captain_balance,
+            COALESCE(SUM(m.balance), 0) as members_total
+          FROM users c
+          LEFT JOIN users m ON m.captain_id = c.id
+          WHERE c.id = ?
+          GROUP BY c.id, c.balance`,
+          [captainId],
+          (err, rows) => {
+            if (err) return reject(err);
+            if (rows.length === 0) {
+              return resolve({ familyTotal: 0 });
+            }
+            
+            const row = rows[0];
+            const captainBalance = Math.round(row.captain_balance || 0);
+            const membersTotal = Math.round(row.members_total || 0);
+            const familyTotal = captainBalance + membersTotal;
+            
+            resolve({ familyTotal });
+          }
+        );
       });
     });
   },

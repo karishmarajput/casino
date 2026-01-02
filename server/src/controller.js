@@ -159,6 +159,20 @@ const userController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  },
+
+  getUserFamilyBalance: async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const result = await userService.getUserFamilyBalance(userId);
+      res.json(result);
+    } catch (error) {
+      if (error.error) {
+        res.status(404).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
   }
 };
 

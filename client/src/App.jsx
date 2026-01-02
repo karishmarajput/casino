@@ -36,10 +36,21 @@ function Navigation() {
     window.location.href = '/admin/login';
   };
 
+  const handleLogoClick = (e) => {
+    if (isAdmin) {
+      e.preventDefault();
+      navigate('/admin/dashboard');
+    }
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-container">
-        <Link to="/" className="nav-logo">
+        <Link 
+          to={isAdmin ? "/admin/dashboard" : "/"} 
+          className="nav-logo"
+          onClick={handleLogoClick}
+        >
           <img src={logoImage} alt="Casino Logo" className="logo-icon" />
           <span className="logo-text">Casino</span>
         </Link>

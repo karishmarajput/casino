@@ -13,7 +13,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 initializeDatabase().then(() => {
-  // Public routes (no authentication required)
   app.get('/api/users/ranking', userController.getUsersRanking);
   app.get('/api/pot', potController.getPotBalance);
   app.get('/api/families/ranking', familyController.getFamilyRanking);
@@ -21,6 +20,7 @@ initializeDatabase().then(() => {
   app.get('/api/client/users/:userId', userController.getUserById);
   app.get('/api/client/users/:userId/transactions', userController.getUserTransactions);
   app.get('/api/client/users/:userId/games', userController.getUserGames);
+  app.get('/api/client/users/:userId/family-balance', userController.getUserFamilyBalance);
   app.post('/api/admin/login', adminController.login);
   app.get('/api/users', authenticateAdmin, userController.getUsers);
   app.get('/api/users/captains', authenticateAdmin, userController.getCaptains);
