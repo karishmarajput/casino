@@ -1,18 +1,11 @@
-#!/bin/bash
-
-# Script for one-time push with different GitHub account
-# This only affects THIS repository, not your global git settings
-
 cd /Users/karishmarajput/Documents/test/test_project
 
 echo "Setting up temporary git config for this repository only..."
 echo ""
 
-# Set local git config (only this repo)
 git config user.name "karishmarajput"
 git config user.email "karrajput3948@gmail.com"
 
-# Clear cached credentials
 printf "host=github.com\nprotocol=https\npath=karishmarajput/casino.git\n\n" | git credential reject 2>/dev/null
 
 echo "✓ Local git config set (only for this repo)"
@@ -36,10 +29,8 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-# Remove any whitespace from token
 TOKEN=$(echo "$TOKEN" | tr -d '[:space:]')
 
-# Test token first
 echo ""
 echo "Testing token..."
 USER_INFO=$(curl -s -H "Authorization: token ${TOKEN}" https://api.github.com/user)
@@ -66,20 +57,17 @@ else
     exit 1
 fi
 
-# Update remote URL with token embedded (temporary)
 git remote set-url origin https://karishmarajput:${TOKEN}@github.com/karishmarajput/casino.git
 
 echo ""
 echo "Pushing to GitHub..."
 git push -u origin main
 
-# Check if push was successful
 if [ $? -eq 0 ]; then
     echo ""
     echo "✓ Push successful!"
     echo ""
     echo "Removing token from URL (for security)..."
-    # Remove token from URL, keep just username
     git remote set-url origin https://karishmarajput@github.com/karishmarajput/casino.git
     echo "✓ Token removed from URL"
     echo ""
