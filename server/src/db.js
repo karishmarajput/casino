@@ -1,8 +1,75 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
+const persistentDataDir = process.env.DB_DATA_DIR || 
+                          path.join(__dirname, '..', 'data');
 
-const dbPath = path.join(__dirname, 'ledger.db');
-const db = new sqlite3.Database(dbPath);
+const dataDir = persistentDataDir;
+const dbPath = path.join(dataDir, 'ledger.db');
+const oldDbPath = path.join(__dirname, 'ledger.db');
+
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+if (fs.existsSync(oldDbPath) && !fs.existsSync(dbPath)) {
+  try {
+    fs.copyFileSync(oldDbPath, dbPath);
+    console.log('Database migrated successfully from', oldDbPath, 'to', dbPath);
+  } catch (err) {
+    console.error('Error migrating database:', err);
+  }
+}
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database:', err);
+    process.exit(1);
+  } else {
+    console.log('Database connected at:', dbPath);
+    db.run('PRAGMA journal_mode = WAL', (err) => {
+      if (err) {
+        console.error('Error setting WAL mode:', err);
+      } else {
+        console.log('Database WAL mode enabled');
+      }
+    });
+    db.run('PRAGMA synchronous = NORMAL', (err) => {
+      if (err) {
+        console.error('Error setting synchronous mode:', err);
+      }
+    });
+    db.run('PRAGMA foreign_keys = ON', (err) => {
+      if (err) {
+        console.error('Error enabling foreign keys:', err);
+      }
+    });
+  }
+});
+
+process.on('SIGINT', () => {
+  console.log('\nClosing database connection...');
+  db.close((err) => {
+    if (err) {
+      console.error('Error closing database:', err);
+    } else {
+      console.log('Database connection closed.');
+    }
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('\nClosing database connection...');
+  db.close((err) => {
+    if (err) {
+      console.error('Error closing database:', err);
+    } else {
+      console.log('Database connection closed.');
+    }
+    process.exit(0);
+  });
+});
 
 function initializeDatabase() {
   return new Promise((resolve, reject) => {
@@ -236,7 +303,6 @@ function runMigrations() {
       }
     });
 
-    // Create groups table
     db.run(`CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -249,8 +315,7 @@ function runMigrations() {
         console.log("Groups table created or already exists");
       }
     });
-
-    // Create group_members table
+    
     db.run(`CREATE TABLE IF NOT EXISTS group_members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       group_id INTEGER NOT NULL,

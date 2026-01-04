@@ -4,7 +4,15 @@ const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'src', 'ledger.db');
+// Use the same data directory as db.js
+const dataDir = path.join(__dirname, 'data');
+const dbPath = path.join(dataDir, 'ledger.db');
+
+// Ensure data directory exists
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
 const db = new sqlite3.Database(dbPath);
 
 // Helper function to generate password from username

@@ -9,5 +9,12 @@ services:
         value: production
       - key: JWT_SECRET
         generateValue: true
+      # Uncomment below and add persistent disk in Render dashboard if using paid plan
+      # - key: DB_DATA_DIR
+      #   value: /opt/render/project/data
+    # Uncomment below if using Render paid plan with persistent disk
+    # disk:
+    #   name: ledger-db-disk
+    #   mountPath: /opt/render/project/data
+    #   sizeGB: 1
     healthCheckPath: /api/pot
-

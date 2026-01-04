@@ -16,6 +16,7 @@ client/build/
 server/src/ledger.db
 server/src/ledger.db-journal
 server/src/users.xlsx
+server/data/
 
 # Logs
 *.log
