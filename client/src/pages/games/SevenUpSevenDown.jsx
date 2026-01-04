@@ -308,7 +308,7 @@ function SevenUpSevenDown({ onBack }) {
 
       setShowWinners({
         winners: winnerUsers,
-        amount: amountPerWinner,
+        amount: Math.round(amountPerWinner * 100) / 100, // Round to 2 decimal places for display
         gameId: currentGame.id
       });
 
@@ -359,10 +359,11 @@ function SevenUpSevenDown({ onBack }) {
         }}
         winners={showWinners ? showWinners.winners.map(winner => ({
           name: winner.name,
-          amount: showWinners.amount
+          amount: Math.round(showWinners.amount * 100) / 100 // Round to 2 decimal places for display
         })) : []}
         title="🎉 WINNERS! 🎉"
         playSoundOnOpen={true}
+        hideBottomButton={true}
       />
       
       <div className="games-layout">
@@ -373,15 +374,21 @@ function SevenUpSevenDown({ onBack }) {
                 <div className="form-group">
                   <label>Entry Fee</label>
                   <input
-                    type="number"
-                    step="1"
-                    min="1"
+                    type="text"
                     value={entryFee}
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value === '' || /^\d+$/.test(value)) {
                         setEntryFee(value);
                       }
+                    }}
+                    onKeyDown={(e) => {
+                      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => {
+                      e.target.blur();
                     }}
                     placeholder="Enter entry fee"
                     required
@@ -455,7 +462,7 @@ function SevenUpSevenDown({ onBack }) {
                               className="selected-user-tag"
                               onClick={() => handleUpUserToggle(userId)}
                             >
-                              {user.name} ×
+                              {user.name}
                             </span>
                           ) : null;
                         })}
@@ -531,7 +538,7 @@ function SevenUpSevenDown({ onBack }) {
                               className="selected-user-tag"
                               onClick={() => handleDownUserToggle(userId)}
                             >
-                              {user.name} ×
+                              {user.name}
                             </span>
                           ) : null;
                         })}

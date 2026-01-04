@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import adminAxios from '../../utils/axiosConfig';
-import { requireAdminAuth } from '../../utils/adminAuth';
 import ToastMessage from '../../components/ToastMessage';
 import WinnerModal from '../../components/WinnerModal';
 import './Poker.css';
@@ -327,15 +326,21 @@ function Poker({ onBack }) {
             <div className="form-group">
               <label>Chip Amount</label>
               <input
-                type="number"
-                step="1"
-                min="1"
+                type="text"
                 value={chipAmount}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === '' || /^\d+$/.test(value)) {
                     setChipAmount(value);
                   }
+                }}
+                onKeyDown={(e) => {
+                  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onWheel={(e) => {
+                  e.target.blur();
                 }}
                 placeholder="Enter chip amount"
                 required
@@ -390,7 +395,7 @@ function Poker({ onBack }) {
                           className="selected-user-tag"
                           onClick={() => handleParticipantToggle(userId)}
                         >
-                          {user.name} ×
+                          {user.name}
                         </span>
                       ) : null;
                     })}

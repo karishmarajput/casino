@@ -7,6 +7,7 @@ import './RollTheBall.css';
 
 function RollTheBall({ onBack }) {
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [entryFee, setEntryFee] = useState('');
   const [currentGame, setCurrentGame] = useState(null);
@@ -28,8 +29,30 @@ function RollTheBall({ onBack }) {
 
   useEffect(() => {
     fetchUsers();
+    fetchGroups();
     checkActiveGame();
   }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await adminAxios.get('/api/groups');
+      setGroups(response.data);
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
+
+  const handleGroupSelect = async (groupId) => {
+    try {
+      const response = await adminAxios.get(`/api/groups/${groupId}`);
+      const memberIds = response.data.members.map(m => m.id.toString());
+      const newParticipants = [...new Set([...selectedParticipants, ...memberIds])];
+      setSelectedParticipants(newParticipants);
+      setMessage(`Added ${memberIds.length} member(s) from group`, 'success');
+    } catch (error) {
+      setMessage(error.response?.data?.error || 'Failed to load group members', 'error');
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -274,9 +297,7 @@ function RollTheBall({ onBack }) {
             <div className="form-group">
               <label>Entry Fee</label>
               <input
-                type="number"
-                step="1"
-                min="1"
+                type="text"
                 value={entryFee}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -284,10 +305,41 @@ function RollTheBall({ onBack }) {
                     setEntryFee(value);
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onWheel={(e) => {
+                  e.target.blur();
+                }}
                 placeholder="Enter entry fee"
                 required
               />
             </div>
+
+            {groups.length > 0 && (
+              <div className="form-group">
+                <label>Select Group (Optional)</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleGroupSelect(parseInt(e.target.value));
+                      e.target.value = '';
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Choose a group to add all members...</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.member_count || 0} members)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className={`form-group ${showDropdown ? 'dropdown-active' : ''}`}>
               <label>Select Participants</label>
@@ -337,7 +389,7 @@ function RollTheBall({ onBack }) {
                           className="selected-user-tag"
                           onClick={() => handleParticipantToggle(userId)}
                         >
-                          {user.name} ×
+                          {user.name}
                         </span>
                       ) : null;
                     })}
@@ -404,7 +456,7 @@ function RollTheBall({ onBack }) {
             onClose={handleCloseWinnerModal}
             winners={winnerInfo ? [{
               name: winnerInfo.winner.name,
-              amount: parseFloat(winnerInfo.potAmount)
+              amount: Math.round(parseFloat(winnerInfo.potAmount) * 100) / 100 // Round to 2 decimal places for display
             }] : []}
             title="🎉 WINNER! 🎉"
             playSoundOnOpen={true}

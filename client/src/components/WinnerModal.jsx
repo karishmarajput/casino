@@ -10,7 +10,8 @@ function WinnerModal({
   loading = false, 
   potAlreadyDistributed = false,
   title = '🎉 WINNERS! 🎉',
-  playSoundOnOpen = false
+  playSoundOnOpen = false,
+  hideBottomButton = false
 }) {
   const audioRef = useRef(null);
   const confettiRef = useRef(null);
@@ -120,16 +121,18 @@ function WinnerModal({
               </div>
             ))}
           </div>
-          <button 
-            onClick={handleDistributeClick}
-            disabled={loading} 
-            className="submit-btn"
-          >
-            {loading 
-              ? (potAlreadyDistributed || !onDistributePot ? 'Closing...' : 'Distributing...') 
-              : (potAlreadyDistributed || !onDistributePot ? 'Close' : 'Distribute Pot to Winners')
-            }
-          </button>
+          {!hideBottomButton && (
+            <button 
+              onClick={handleDistributeClick}
+              disabled={loading} 
+              className="submit-btn"
+            >
+              {loading 
+                ? (potAlreadyDistributed || !onDistributePot ? 'Closing...' : 'Distributing...') 
+                : (potAlreadyDistributed || !onDistributePot ? 'Close' : 'Distribute Pot to Winners')
+              }
+            </button>
+          )}
         </div>
       </div>
     </>

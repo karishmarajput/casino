@@ -118,7 +118,6 @@ function Transaction() {
     }
 
     try {
-      // Create all transactions atomically (all or nothing)
       const transactions = fromUserIds.map(fromUserId => ({
         fromUserId: parseInt(fromUserId),
         toUserId: toPot ? null : parseInt(toUserId),
@@ -318,7 +317,7 @@ function Transaction() {
                             className="selected-user-tag"
                             onClick={() => handleFromUserToggle(userId)}
                           >
-                            {user.name} ×
+                            {user.name}
                           </span>
                         ) : null;
                       })}
@@ -378,15 +377,21 @@ function Transaction() {
               <div className="form-group">
                 <label>Amount</label>
                 <input
-                  type="number"
-                  step="1"
-                  min="1"
+                  type="text"
                   value={amount}
                   onChange={(e) => {
                     const value = e.target.value;
                     if (value === '' || /^\d+$/.test(value)) {
                       setAmount(value);
                     }
+                  }}
+                  onKeyDown={(e) => {
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    e.target.blur();
                   }}
                   placeholder="Enter amount"
                   required

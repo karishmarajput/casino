@@ -234,6 +234,37 @@ function runMigrations() {
           }
         });
       }
+    });
+
+    // Create groups table
+    db.run(`CREATE TABLE IF NOT EXISTS groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error("Error creating groups table:", err);
+      } else {
+        console.log("Groups table created or already exists");
+      }
+    });
+
+    // Create group_members table
+    db.run(`CREATE TABLE IF NOT EXISTS group_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(group_id, user_id)
+    )`, (err) => {
+      if (err) {
+        console.error("Error creating group_members table:", err);
+      } else {
+        console.log("Group_members table created or already exists");
+      }
       resolve();
     });
   });

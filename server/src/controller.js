@@ -1,4 +1,4 @@
-const { userService, potService, transactionService, familyService, gameService, adminService } = require('./service');
+const { userService, potService, transactionService, familyService, gameService, adminService, groupService } = require('./service');
 const adminAuthService = require('./adminService');
 const { db } = require('./db');
 
@@ -533,12 +533,122 @@ const adminController = {
   }
 };
 
+const groupController = {
+  getAllGroups: async (req, res) => {
+    try {
+      const groups = await groupService.getAllGroups();
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getGroupById: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const group = await groupService.getGroupById(groupId);
+      const members = await groupService.getGroupMembers(groupId);
+      res.json({ ...group, members });
+    } catch (error) {
+      if (error.error) {
+        res.status(404).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  },
+
+  createGroup: async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      const group = await groupService.createGroup(name, description);
+      res.json(group);
+    } catch (error) {
+      if (error.error) {
+        res.status(400).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  },
+
+  updateGroup: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const { name, description } = req.body;
+      const result = await groupService.updateGroup(groupId, name, description);
+      res.json(result);
+    } catch (error) {
+      if (error.error) {
+        res.status(400).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  },
+
+  deleteGroup: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const result = await groupService.deleteGroup(groupId);
+      res.json(result);
+    } catch (error) {
+      if (error.error) {
+        res.status(404).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  },
+
+  addMemberToGroup: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+      const result = await groupService.addMemberToGroup(groupId, userId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  removeMemberFromGroup: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const userId = parseInt(req.params.userId);
+      const result = await groupService.removeMemberFromGroup(groupId, userId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  addMultipleMembersToGroup: async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const { userIds } = req.body;
+      const result = await groupService.addMultipleMembersToGroup(groupId, userIds);
+      res.json(result);
+    } catch (error) {
+      if (error.error) {
+        res.status(400).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  }
+};
+
 module.exports = {
   userController,
   potController,
   transactionController,
   familyController,
   gameController,
-  adminController
+  adminController,
+  groupController
 };
 

@@ -10,7 +10,7 @@ function PlayerRedirect() {
   }
   
   // User is not logged in, redirect to login
-  return <Navigate to="/players/login" replace />;
+  return <Navigate to="/login" replace />;
 }
 
 export default PlayerRedirect;

@@ -18,7 +18,7 @@ export const isAdminAuthenticated = () => {
 
 export const requireAdminAuth = () => {
   if (!isAdminAuthenticated()) {
-    window.location.href = '/admin/login';
+    window.location.href = '/login';
     return false;
   }
   return true;

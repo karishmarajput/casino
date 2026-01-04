@@ -611,6 +611,12 @@
   transform: scale(1.05);
 }
 
+.selected-user-tag::after {
+  content: ' ×';
+  margin-left: 0.25rem;
+  font-size: 1.1rem;
+}
+
 .message {
   padding: 0.75rem;
   border-radius: 8px;

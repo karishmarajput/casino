@@ -7,6 +7,7 @@ import ToastMessage from '../../components/ToastMessage';
 import WinnerModal from '../../components/WinnerModal';
 function Roulette({ onBack }) {
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [entryFee, setEntryFee] = useState('');
   const [currentGame, setCurrentGame] = useState(null);
@@ -33,8 +34,30 @@ function Roulette({ onBack }) {
 
   useEffect(() => {
     fetchUsers();
+    fetchGroups();
     checkActiveGame();
   }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await adminAxios.get('/api/groups');
+      setGroups(response.data);
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
+
+  const handleGroupSelect = async (groupId) => {
+    try {
+      const response = await adminAxios.get(`/api/groups/${groupId}`);
+      const memberIds = response.data.members.map(m => m.id.toString());
+      const newParticipants = [...new Set([...selectedParticipants, ...memberIds])];
+      setSelectedParticipants(newParticipants);
+      setMessage(`Added ${memberIds.length} member(s) from group`, 'success');
+    } catch (error) {
+      setMessage(error.response?.data?.error || 'Failed to load group members', 'error');
+    }
+  };
 
   useEffect(() => {
   }, [step, currentGame, spinResult, winners]);
@@ -600,9 +623,7 @@ function Roulette({ onBack }) {
             <div className="form-group">
               <label>Entry Fee</label>
               <input
-                type="number"
-                step="1"
-                min="1"
+                type="text"
                 value={entryFee}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -610,10 +631,41 @@ function Roulette({ onBack }) {
                     setEntryFee(value);
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onWheel={(e) => {
+                  e.target.blur();
+                }}
                 placeholder="Enter entry fee"
                 required
               />
             </div>
+
+            {groups.length > 0 && (
+              <div className="form-group">
+                <label>Select Group (Optional)</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleGroupSelect(parseInt(e.target.value));
+                      e.target.value = '';
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Choose a group to add all members...</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.member_count || 0} members)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className={`form-group ${showDropdown ? 'dropdown-active' : ''}`}>
               <label>Select Participants</label>
@@ -664,12 +716,25 @@ function Roulette({ onBack }) {
                       <div key={userId} className="number-input-group">
                         <label className="participant-name-label">{user.name}</label>
                         <input
-                          type="number"
-                          min="0"
-                          max="36"
-                          step="1"
+                          type="text"
                           value={participantNumbers[userId] || ''}
-                          onChange={(e) => handleNumberChange(userId, e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d+$/.test(value)) {
+                              const num = parseInt(value) || 0;
+                              if (num >= 0 && num <= 36) {
+                                handleNumberChange(userId, value);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onWheel={(e) => {
+                            e.target.blur();
+                          }}
                           placeholder="Enter number (0-36)"
                           required
                           className="participant-number-input"
@@ -793,11 +858,25 @@ function Roulette({ onBack }) {
             <div className="manual-result-section">
               <div className="result-input-group">
                 <input
-                  type="number"
-                  min="0"
-                  max="36"
+                  type="text"
                   value={manualSpinResult}
-                  onChange={(e) => setManualSpinResult(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^\d+$/.test(value)) {
+                      const num = parseInt(value) || 0;
+                      if (num >= 0 && num <= 36) {
+                        setManualSpinResult(value);
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    e.target.blur();
+                  }}
                   placeholder="Enter number"
                   className="result-input"
                   disabled={loading}
@@ -843,7 +922,7 @@ function Roulette({ onBack }) {
               const winnerAmount = currentGame?.pot_amount ? (currentGame.pot_amount / winners.length) : 0;
               return {
                 name: winnerName,
-                amount: winnerAmount,
+                amount: Math.round(winnerAmount * 100) / 100, // Round to 2 decimal places for display
                 number: winner.number
               };
             })}
@@ -918,15 +997,21 @@ function Roulette({ onBack }) {
             <div className="form-group">
               <label>Additional Bet Amount</label>
               <input
-                type="number"
-                step="1"
-                min="1"
+                type="text"
                 value={additionalBet}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (value === '' || /^\d+$/.test(value)) {
                     setAdditionalBet(value);
                   }
+                }}
+                onKeyDown={(e) => {
+                  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onWheel={(e) => {
+                  e.target.blur();
                 }}
                 placeholder="Enter additional bet"
                 required
@@ -1001,12 +1086,25 @@ function Roulette({ onBack }) {
                       <div key={userId} className="number-input-group">
                         <label className="participant-name-label">{user.name}</label>
                         <input
-                          type="number"
-                          min="0"
-                          max="36"
-                          step="1"
+                          type="text"
                           value={participantNumbers[userId] || ''}
-                          onChange={(e) => handleNumberChange(userId, e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d+$/.test(value)) {
+                              const num = parseInt(value) || 0;
+                              if (num >= 0 && num <= 36) {
+                                handleNumberChange(userId, value);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onWheel={(e) => {
+                            e.target.blur();
+                          }}
                           placeholder="Enter number (0-36)"
                           required
                           className="participant-number-input"

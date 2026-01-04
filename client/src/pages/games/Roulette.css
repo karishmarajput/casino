@@ -12,6 +12,31 @@
   box-sizing: border-box;
 }
 
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.form-select option {
+  background: rgba(20, 20, 30, 0.98);
+  color: #fff;
+}
+
 /* External roulette section */
 .external-roulette-container {
   display: flex;
@@ -1213,7 +1238,7 @@
 
 .roulette-card .form-group input[type="number"],
 .roulette-card .form-group input[type="text"] {
-  width: 100%;
+  min-width: 100%;
   padding: 0.75rem;
   border: 2px solid rgba(212, 175, 55, 0.5);
   border-radius: 8px;
@@ -1323,6 +1348,12 @@
 .roulette-card .selected-user-tag:hover {
   background: rgba(212, 175, 55, 0.3);
   transform: scale(1.05);
+}
+
+.roulette-card .selected-user-tag::after {
+  content: ' ×';
+  margin-left: 0.25rem;
+  font-size: 1.1rem;
 }
 
 .roulette-card .message {

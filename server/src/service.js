@@ -314,7 +314,7 @@ const userService = {
             'roulette': 'Roulette',
             'rolltheball': 'Roll the Ball',
             'poker': 'Poker',
-            'dealnodeal': 'Deal No Deal'
+            'dealnodeal': 'Steal No Steal'
           };
           
           const formattedRows = rows.map(row => {
@@ -358,7 +358,7 @@ const userService = {
             'roulette': 'Roulette',
             'rolltheball': 'Roll the Ball',
             'poker': 'Poker',
-            'dealnodeal': 'Deal No Deal'
+            'dealnodeal': 'Steal No Steal'
           };
           
           const formattedRows = rows.map(row => {
@@ -777,7 +777,7 @@ const transactionService = {
             'roulette': 'Roulette',
             'rolltheball': 'Roll the Ball',
             'poker': 'Poker',
-            'dealnodeal': 'Deal No Deal'
+            'dealnodeal': 'Steal No Steal'
           };
           
           const formattedRows = rows.map(row => {
@@ -1147,7 +1147,7 @@ const gameService = {
                   return reject({ error: 'No participants selected this option' });
                 }
 
-                const amountPerWinner = Math.floor(parseInt(game.pot_amount) / winners.length);
+                const amountPerWinner = parseFloat(game.pot_amount) / winners.length;
                 let processedCount = 0;
                 let hasError = false;
 
@@ -1450,7 +1450,7 @@ const gameService = {
               return reject({ error: 'Game not found' });
             }
 
-            const amountPerWinner = Math.floor(parseInt(game.pot_amount) / winnerUserIds.length);
+            const amountPerWinner = parseFloat(game.pot_amount) / winnerUserIds.length;
             let processedCount = 0;
             let hasError = false;
 
@@ -1772,7 +1772,7 @@ const gameService = {
                   return reject({ error: 'Selected winner is not a participant in this game' });
                 }
 
-                const potAmount = Math.round(parseInt(game.pot_amount || 0));
+                const potAmount = parseFloat(game.pot_amount || 0);
 
                 db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [potAmount], (err) => {
                   if (err) {
@@ -1962,6 +1962,176 @@ const gameService = {
   }
 };
 
+const groupService = {
+  getAllGroups: () => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT g.*, 
+         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+         FROM groups g ORDER BY g.created_at DESC`,
+        [],
+        (err, groups) => {
+          if (err) return reject(err);
+          resolve(groups);
+        }
+      );
+    });
+  },
+
+  getGroupById: (groupId) => {
+    return new Promise((resolve, reject) => {
+      db.get("SELECT * FROM groups WHERE id = ?", [groupId], (err, group) => {
+        if (err) return reject(err);
+        if (!group) return reject({ error: 'Group not found' });
+        resolve(group);
+      });
+    });
+  },
+
+  getGroupMembers: (groupId) => {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT u.id, u.name, u.balance 
+         FROM users u 
+         INNER JOIN group_members gm ON u.id = gm.user_id 
+         WHERE gm.group_id = ? 
+         ORDER BY u.name`,
+        [groupId],
+        (err, members) => {
+          if (err) return reject(err);
+          resolve(members);
+        }
+      );
+    });
+  },
+
+  createGroup: (name, description) => {
+    return new Promise((resolve, reject) => {
+      if (!name || name.trim() === '') {
+        return reject({ error: 'Group name is required' });
+      }
+
+      db.run(
+        "INSERT INTO groups (name, description) VALUES (?, ?)",
+        [name.trim(), description ? description.trim() : null],
+        function(err) {
+          if (err) {
+            if (err.message.includes('UNIQUE constraint')) {
+              return reject({ error: 'Group name already exists' });
+            }
+            return reject(err);
+          }
+          resolve({ id: this.lastID, name: name.trim(), description: description ? description.trim() : null });
+        }
+      );
+    });
+  },
+
+  updateGroup: (groupId, name, description) => {
+    return new Promise((resolve, reject) => {
+      if (!name || name.trim() === '') {
+        return reject({ error: 'Group name is required' });
+      }
+
+      db.run(
+        "UPDATE groups SET name = ?, description = ? WHERE id = ?",
+        [name.trim(), description ? description.trim() : null, groupId],
+        function(err) {
+          if (err) {
+            if (err.message.includes('UNIQUE constraint')) {
+              return reject({ error: 'Group name already exists' });
+            }
+            return reject(err);
+          }
+          if (this.changes === 0) {
+            return reject({ error: 'Group not found' });
+          }
+          resolve({ message: 'Group updated successfully' });
+        }
+      );
+    });
+  },
+
+  deleteGroup: (groupId) => {
+    return new Promise((resolve, reject) => {
+      db.run("DELETE FROM groups WHERE id = ?", [groupId], function(err) {
+        if (err) return reject(err);
+        if (this.changes === 0) {
+          return reject({ error: 'Group not found' });
+        }
+        resolve({ message: 'Group deleted successfully' });
+      });
+    });
+  },
+
+  addMemberToGroup: (groupId, userId) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        "INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)",
+        [groupId, userId],
+        function(err) {
+          if (err) return reject(err);
+          resolve({ message: 'Member added to group successfully' });
+        }
+      );
+    });
+  },
+
+  removeMemberFromGroup: (groupId, userId) => {
+    return new Promise((resolve, reject) => {
+      db.run(
+        "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+        [groupId, userId],
+        function(err) {
+          if (err) return reject(err);
+          resolve({ message: 'Member removed from group successfully' });
+        }
+      );
+    });
+  },
+
+  addMultipleMembersToGroup: (groupId, userIds) => {
+    return new Promise((resolve, reject) => {
+      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+        return reject({ error: 'User IDs array is required' });
+      }
+
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION", (beginErr) => {
+          if (beginErr) return reject(beginErr);
+
+          let processedCount = 0;
+          let hasError = false;
+
+          userIds.forEach((userId) => {
+            db.run(
+              "INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)",
+              [groupId, userId],
+              (err) => {
+                if (err && !hasError) {
+                  hasError = true;
+                  db.run("ROLLBACK", () => {});
+                  return reject(err);
+                }
+                processedCount++;
+                if (processedCount === userIds.length && !hasError) {
+                  db.run("COMMIT", (commitErr) => {
+                    if (commitErr) {
+                      db.run("ROLLBACK", () => {});
+                      return reject(commitErr);
+                    }
+                    resolve({ message: `${userIds.length} member(s) added to group successfully` });
+                  });
+                }
+              }
+            );
+          });
+        });
+      });
+    });
+  }
+};
+
 const adminService = {
   flushDatabase: () => {
     return new Promise((resolve, reject) => {
@@ -2061,6 +2231,7 @@ module.exports = {
   transactionService,
   familyService,
   gameService,
-  adminService
+  adminService,
+  groupService
 };
 

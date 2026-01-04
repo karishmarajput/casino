@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { initializeDatabase } = require('./src/db');
-const { userController, potController, transactionController, familyController, gameController, adminController } = require('./src/controller');
+const { userController, potController, transactionController, familyController, gameController, adminController, groupController } = require('./src/controller');
 const { authenticateAdmin } = require('./src/middleware');
 
 const app = express();
@@ -47,6 +47,16 @@ initializeDatabase().then(() => {
   app.post('/api/games/:gameId/rolltheball/select-winner', authenticateAdmin, gameController.selectRollTheBallWinner);
   app.post('/api/games/:gameId/poker/distribute', authenticateAdmin, gameController.distributePokerPot);
   app.post('/api/admin/flush-database', authenticateAdmin, adminController.flushDatabase);
+  
+  // Groups routes
+  app.get('/api/groups', authenticateAdmin, groupController.getAllGroups);
+  app.get('/api/groups/:id', authenticateAdmin, groupController.getGroupById);
+  app.post('/api/groups', authenticateAdmin, groupController.createGroup);
+  app.put('/api/groups/:id', authenticateAdmin, groupController.updateGroup);
+  app.delete('/api/groups/:id', authenticateAdmin, groupController.deleteGroup);
+  app.post('/api/groups/:id/members', authenticateAdmin, groupController.addMemberToGroup);
+  app.delete('/api/groups/:id/members/:userId', authenticateAdmin, groupController.removeMemberFromGroup);
+  app.post('/api/groups/:id/members/batch', authenticateAdmin, groupController.addMultipleMembersToGroup);
 
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

@@ -1,3 +1,28 @@
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.form-select option {
+  background: rgba(20, 20, 30, 0.98);
+  color: #fff;
+}
+
 .seven-up-down-container {
   padding: 1rem;
   position: relative;
@@ -280,13 +305,17 @@
   pointer-events: none;
 }
 
-.form-group {
+.games-card .form-group {
   margin-bottom: 1.5rem;
   position: relative;
   z-index: 1;
 }
 
-.form-group label {
+.games-card .form-group.dropdown-active {
+  z-index: 1000;
+}
+
+.games-card .form-group label {
   display: block;
   color: #d4af37;
   font-weight: 700;
@@ -295,8 +324,8 @@
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-.form-group input[type="number"],
-.form-group input[type="text"] {
+.games-card .form-group input[type="number"],
+.games-card .form-group input[type="text"] {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid rgba(212, 175, 55, 0.5);
@@ -308,61 +337,87 @@
   box-sizing: border-box;
 }
 
-.form-group input[type="number"]:focus,
-.form-group input[type="text"]:focus {
+.games-card .form-group input:focus {
   outline: none;
   border-color: #d4af37;
   box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
   background: rgba(0, 0, 0, 0.8);
 }
 
-.dropdown-container {
+.games-card .dropdown-container {
   position: relative;
+  z-index: 1001;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.dropdown {
+.games-card .search-input {
+  min-width: 100%;
+  padding: 0.75rem;
+  border: 2px solid rgba(212, 175, 55, 0.5);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1002;
+}
+
+.games-card .search-input:focus {
+  outline: none;
+  border-color: #d4af37;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.games-card .dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(0, 0, 0, 0.98);
   border: 2px solid #d4af37;
   border-radius: 8px;
   max-height: 300px;
   overflow-y: auto;
-  z-index: 1000;
-  margin-top: 4px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.8);
+  z-index: 10000 !important;
+  margin-top: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9), 0 0 40px rgba(212, 175, 55, 0.3);
+  box-sizing: border-box;
 }
 
-.dropdown-item {
-  padding: 0.75rem;
+.games-card .dropdown-item {
+  padding: 0.5rem 0.75rem;
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   transition: background 0.2s ease;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
 }
 
-.dropdown-item:hover {
+.games-card .dropdown-item:hover {
   background: rgba(212, 175, 55, 0.2);
 }
 
-.dropdown-item:last-child {
+.games-card .dropdown-item:last-child {
   border-bottom: none;
 }
 
-.select-all-item {
+.games-card .select-all-item {
   background: rgba(212, 175, 55, 0.1);
   font-weight: 700;
   color: #d4af37;
 }
 
-.checkbox-input {
-  cursor: pointer;
+.games-card .checkbox-input {
   width: 18px;
   height: 18px;
+  cursor: pointer;
+  accent-color: #d4af37;
 }
 
 .selected-users {
@@ -401,6 +456,12 @@
 .selected-user-tag:hover {
   background: rgba(212, 175, 55, 0.4);
   transform: scale(1.05);
+}
+
+.selected-user-tag::after {
+  content: ' ×';
+  margin-left: 0.25rem;
+  font-size: 1.1rem;
 }
 
 .submit-btn {

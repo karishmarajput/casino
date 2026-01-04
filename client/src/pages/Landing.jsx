@@ -43,7 +43,7 @@ function Landing() {
     {
       icon: '🎰',
       title: 'Games',
-      description: 'Play Roulette, Poker, Roll the Ball, Deal No Deal, and 7 Up & 7 Down',
+      description: 'Play Roulette, Poker, Roll the Ball, Steal No Steal, and 7 Up & 7 Down',
       link: '/games',
       color: '#d4af37'
     },

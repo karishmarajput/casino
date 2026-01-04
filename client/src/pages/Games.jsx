@@ -36,7 +36,7 @@ function Games() {
     },
     {
       id: 'dealnodeal',
-      name: 'Deal No Deal',
+      name: 'Steal No Steal',
       icon: '🎁',
       description: 'Spin the wheel and manage participant amounts'
     }

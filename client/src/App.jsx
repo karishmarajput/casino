@@ -7,12 +7,12 @@ import UserRegistration from './pages/UserRegistration';
 import FamilyView from './pages/FamilyView';
 import Games from './pages/Games';
 import FlushDatabase from './pages/FlushDatabase';
-import ClientLogin from './pages/client/ClientLogin';
+import Groups from './pages/Groups';
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientTransactionHistory from './pages/client/ClientTransactionHistory';
 import ClientGameHistory from './pages/client/ClientGameHistory';
 import ClientRankings from './pages/client/ClientRankings';
-import AdminLogin from './pages/AdminLogin';
+import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import PlayerRedirect from './components/PlayerRedirect';
 import AdminRedirect from './components/AdminRedirect';
@@ -33,7 +33,7 @@ function Navigation() {
 
   const handleAdminLogout = () => {
     removeAdminToken();
-    window.location.href = '/admin/login';
+    window.location.href = '/login';
   };
 
   const handleLogoClick = (e) => {
@@ -101,6 +101,13 @@ function Navigation() {
                       Transaction
                     </Link>
                     <Link 
+                      to="/groups" 
+                      className={location.pathname === '/groups' ? 'dropdown-item active' : 'dropdown-item'}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Groups
+                    </Link>
+                    <Link 
                       to="/flush-database" 
                       className={location.pathname === '/flush-database' ? 'dropdown-item active' : 'dropdown-item'}
                       onClick={() => setDropdownOpen(false)}
@@ -122,10 +129,10 @@ function Navigation() {
           )}
           {!isAdmin && (
             <Link 
-              to="/admin/login" 
+              to="/login" 
               className="nav-link"
             >
-              Admin Login
+              Login
             </Link>
           )}
         </div>
@@ -137,18 +144,20 @@ function Navigation() {
 function AppContent() {
   const location = useLocation();
   const isPlayerRoute = location.pathname.startsWith('/players');
-  const isAdminLoginRoute = location.pathname === '/admin/login';
+  const isLoginRoute = location.pathname === '/login';
 
   return (
     <div className="app">
-      {!isPlayerRoute && !isAdminLoginRoute && <Navigation />}
-      <main className={isPlayerRoute || isAdminLoginRoute ? "client-main-content" : "main-content"}>
+      {!isPlayerRoute && !isLoginRoute && <Navigation />}
+      <main className={isPlayerRoute || isLoginRoute ? "client-main-content" : "main-content"}>
         <Routes>
           {/* Root route - redirects to player */}
           <Route path="/" element={<PlayerRedirect />} />
           
+          {/* Login route - unified for admin and client */}
+          <Route path="/login" element={<Login />} />
+          
           {/* Player routes */}
-          <Route path="/players/login" element={<ClientLogin />} />
           <Route path="/players/dashboard" element={<ClientDashboard />} />
           <Route path="/players/rankings" element={<ClientRankings />} />
           <Route path="/players/transactions" element={<ClientTransactionHistory />} />
@@ -156,7 +165,6 @@ function AppContent() {
           
           {/* Admin routes */}
           <Route path="/admin" element={<AdminRedirect />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
           <Route 
             path="/admin/dashboard" 
             element={
@@ -208,6 +216,14 @@ function AppContent() {
             } 
           />
           <Route 
+            path="/groups" 
+            element={
+              <ProtectedRoute>
+                <Groups />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/flush-database" 
             element={
               <ProtectedRoute>
@@ -217,7 +233,7 @@ function AppContent() {
           />
         </Routes>
       </main>
-      {!isPlayerRoute && !isAdminLoginRoute && (
+      {!isPlayerRoute && !isLoginRoute && (
         <footer className="app-footer">
           <p>Developed by Karishma Rajput</p>
         </footer>

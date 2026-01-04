@@ -124,15 +124,21 @@ function UserRegistration() {
           <div className="form-group">
             <label>Initial Amount (for all users)</label>
             <input
-              type="number"
-              step="1"
-              min="1"
+              type="text"
               value={initialAmount}
               onChange={(e) => {
                 const value = e.target.value;
                 if (value === '' || /^\d+$/.test(value)) {
                   setInitialAmount(value);
                 }
+              }}
+              onKeyDown={(e) => {
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              onWheel={(e) => {
+                e.target.blur();
               }}
               placeholder="Enter initial amount"
               required

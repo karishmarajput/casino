@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import adminAxios from '../../utils/axiosConfig';
 import { requireAdminAuth } from '../../utils/adminAuth';
 import ToastMessage from '../../components/ToastMessage';
+import spinningSound from '../../assets/spinning.mp3';
+import spinWinSound from '../../assets/spin-win-sound.mp3';
+import failureSound from '../../assets/failure-sound.mp3';
+import winnerSound from '../../assets/winner-sound.mp3';
 import './DealNoDeal.css';
 
 function DealNoDeal({ onBack }) {
@@ -27,7 +31,13 @@ function DealNoDeal({ onBack }) {
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [pendingWinner, setPendingWinner] = useState(null);
   const [showGameCompletedModal, setShowGameCompletedModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [transactionInfo, setTransactionInfo] = useState(null);
   const wheelRef = useRef(null);
+  const spinSoundRef = useRef(null);
+  const winSoundRef = useRef(null);
+  const failureSoundRef = useRef(null);
+  const winnerSoundRef = useRef(null);
   const [amountFormData, setAmountFormData] = useState({
     playerId: '',
     operation: 'add',
@@ -36,6 +46,37 @@ function DealNoDeal({ onBack }) {
 
   useEffect(() => {
     fetchUsers();
+    spinSoundRef.current = new Audio(spinningSound);
+    spinSoundRef.current.loop = false;
+    spinSoundRef.current.volume = 0.7;
+    
+    winSoundRef.current = new Audio(spinWinSound);
+    winSoundRef.current.volume = 0.7;
+    
+    failureSoundRef.current = new Audio(failureSound);
+    failureSoundRef.current.volume = 0.7;
+    
+    winnerSoundRef.current = new Audio(winnerSound);
+    winnerSoundRef.current.volume = 0.7;
+    
+    return () => {
+      if (spinSoundRef.current) {
+        spinSoundRef.current.pause();
+        spinSoundRef.current = null;
+      }
+      if (winSoundRef.current) {
+        winSoundRef.current.pause();
+        winSoundRef.current = null;
+      }
+      if (failureSoundRef.current) {
+        failureSoundRef.current.pause();
+        failureSoundRef.current = null;
+      }
+      if (winnerSoundRef.current) {
+        winnerSoundRef.current.pause();
+        winnerSoundRef.current = null;
+      }
+    };
   }, []);
 
   const handleWheelStop = React.useCallback((selectedPlayer) => {
@@ -43,9 +84,23 @@ function DealNoDeal({ onBack }) {
     setPendingWinner(selectedPlayer);
     setShowWinnerModal(true);
     setIsSpinning(false);
+    
+    // Play win sound when modal opens
+    if (winSoundRef.current) {
+      winSoundRef.current.currentTime = 0;
+      winSoundRef.current.play().catch(err => {
+        console.error('Error playing win sound:', err);
+      });
+    }
   }, []);
 
-  const handleCloseWinnerModal = () => {
+  const handleCloseWinnerModal = React.useCallback(() => {
+    // Stop win sound when modal closes
+    if (winSoundRef.current) {
+      winSoundRef.current.pause();
+      winSoundRef.current.currentTime = 0;
+    }
+    
     if (pendingWinner) {
       setSelectedPlayers(prev => {
         const newSelectedPlayers = [...prev, pendingWinner];
@@ -70,10 +125,22 @@ function DealNoDeal({ onBack }) {
       });
       setWheelParticipants(prev => prev.filter(p => p.id !== pendingWinner.id));
     }
-    
     setShowWinnerModal(false);
     setPendingWinner(null);
-  };
+  }, [pendingWinner, wheelParticipants.length]);
+
+  // Auto-close winner modal after 10 seconds
+  useEffect(() => {
+    if (showWinnerModal && pendingWinner) {
+      const timer = setTimeout(() => {
+        handleCloseWinnerModal();
+      }, 10000); // 10 seconds
+
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [showWinnerModal, pendingWinner, handleCloseWinnerModal]);
 
   useEffect(() => {
     if (step === 'game' && wheelParticipants.length > 0 && wheelRef.current) {
@@ -233,6 +300,22 @@ function DealNoDeal({ onBack }) {
     const startTime = Date.now();
     const duration = 3000;
     
+    // Play spinning sound - will loop and stop exactly when animation completes
+    if (spinSoundRef.current) {
+      spinSoundRef.current.currentTime = 0;
+      spinSoundRef.current.play().catch(err => {
+        console.error('Error playing spin sound:', err);
+      });
+      
+      // Stop audio exactly when animation completes (3000ms)
+      setTimeout(() => {
+        if (spinSoundRef.current) {
+          spinSoundRef.current.pause();
+          spinSoundRef.current.currentTime = 0;
+        }
+      }, duration);
+    }
+    
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -329,6 +412,13 @@ function DealNoDeal({ onBack }) {
         
         const selectedPlayer = wheelParticipants[closestIndex];
         setCurrentSpinResult(selectedPlayer);
+        
+        // Stop spinning sound
+        if (spinSoundRef.current) {
+          spinSoundRef.current.pause();
+          spinSoundRef.current.currentTime = 0;
+        }
+        
         handleWheelStop(selectedPlayer);
       }
     };
@@ -370,6 +460,39 @@ function DealNoDeal({ onBack }) {
 
       const playerName = users.find(u => u.id === playerId)?.name;
       showMessage(`${isDeduct ? 'Deducted' : 'Added'} $${amount.toFixed(2)} ${isDeduct ? 'from' : 'to'} ${playerName}`, 'success');
+      
+      // Play appropriate sound and show modal based on operation
+      if (isDeduct) {
+        // Play failure sound when money is deducted
+        if (failureSoundRef.current) {
+          failureSoundRef.current.currentTime = 0;
+          failureSoundRef.current.play().catch(err => {
+            console.error('Error playing failure sound:', err);
+          });
+        }
+        // Show transaction modal in red
+        setTransactionInfo({
+          name: playerName,
+          amount: amount,
+          isWinner: false
+        });
+        setShowTransactionModal(true);
+      } else {
+        // Play winner sound when money is added
+        if (winnerSoundRef.current) {
+          winnerSoundRef.current.currentTime = 0;
+          winnerSoundRef.current.play().catch(err => {
+            console.error('Error playing winner sound:', err);
+          });
+        }
+        // Show transaction modal in green as winner
+        setTransactionInfo({
+          name: playerName,
+          amount: amount,
+          isWinner: true
+        });
+        setShowTransactionModal(true);
+      }
 
       const otherPlayer = selectedPlayers.find(p => p.id.toString() !== amountFormData.playerId);
       if (otherPlayer) {
@@ -504,7 +627,7 @@ function DealNoDeal({ onBack }) {
                           className="selected-user-tag"
                           onClick={() => handleParticipantToggle(userId)}
                         >
-                          {user.name} ×
+                          {user.name}
                         </span>
                       ) : null;
                     })}
@@ -615,15 +738,21 @@ function DealNoDeal({ onBack }) {
                     <div className="form-row">
                       <label>Amount:</label>
                       <input
-                        type="number"
-                        step="1"
-                        min="1"
+                        type="text"
                         value={amountFormData.amount}
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '' || /^\d+$/.test(value)) {
                             handleAmountFormChange('amount', value);
                           }
+                        }}
+                        onKeyDown={(e) => {
+                          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onWheel={(e) => {
+                          e.target.blur();
                         }}
                         placeholder="Enter amount"
                         className="form-input"
@@ -652,7 +781,7 @@ function DealNoDeal({ onBack }) {
           {showWinnerModal && pendingWinner && (
             <div className="winner-modal-overlay" onClick={handleCloseWinnerModal}>
               <div className="winner-modal" onClick={(e) => e.stopPropagation()}>
-                <h2 className="winner-modal-title">🎉 Winner Selected! 🎉</h2>
+                <h2 className="winner-modal-title">Selected</h2>
                 <div className="winner-modal-content">
                   <div className="winner-name-large">{pendingWinner.name}</div>
                 </div>
@@ -669,11 +798,10 @@ function DealNoDeal({ onBack }) {
           {showGameCompletedModal && (
             <div className="winner-modal-overlay" onClick={handleGameCompleted}>
               <div className="winner-modal" onClick={(e) => e.stopPropagation()}>
-                <h2 className="winner-modal-title">🎊 Game Completed! 🎊</h2>
+                <h2 className="winner-modal-title">🎊 Game Over! 🎊</h2>
                 <div className="winner-modal-content">
-                  <div className="winner-name-large">All transactions completed!</div>
                   <p style={{ color: '#d4af37', fontSize: '1.2rem', marginTop: '1rem' }}>
-                    The game has finished. You can start a new game.
+                    Thank you for playing!
                   </p>
                 </div>
                 <button 
@@ -681,6 +809,88 @@ function DealNoDeal({ onBack }) {
                   className="winner-modal-btn"
                 >
                   Start New Game
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showTransactionModal && transactionInfo && (
+            <div 
+              className="winner-modal-overlay" 
+              onClick={() => {
+                // Stop sounds when closing modal
+                if (failureSoundRef.current) {
+                  failureSoundRef.current.pause();
+                  failureSoundRef.current.currentTime = 0;
+                }
+                if (winnerSoundRef.current) {
+                  winnerSoundRef.current.pause();
+                  winnerSoundRef.current.currentTime = 0;
+                }
+                setShowTransactionModal(false);
+                setTransactionInfo(null);
+              }}
+            >
+              <div 
+                className={`winner-modal transaction-modal ${transactionInfo.isWinner ? 'transaction-winner' : 'transaction-deduct'}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 
+                  className="winner-modal-title"
+                  style={{ 
+                    color: transactionInfo.isWinner ? '#22c55e' : '#ef4444',
+                    textShadow: transactionInfo.isWinner 
+                      ? '2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 20px rgba(34, 197, 94, 0.5)' 
+                      : '2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 20px rgba(239, 68, 68, 0.5)'
+                  }}
+                >
+                  {transactionInfo.isWinner ? '🎉 Winner! 🎉' : '💸 Deducted'}
+                </h2>
+                <div className="winner-modal-content">
+                  <div 
+                    className="winner-name-large"
+                    style={{ 
+                      color: transactionInfo.isWinner ? '#22c55e' : '#ef4444',
+                      fontSize: '2rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    {transactionInfo.name}
+                  </div>
+                  <div 
+                    style={{ 
+                      color: transactionInfo.isWinner ? '#22c55e' : '#ef4444',
+                      fontSize: '1.5rem',
+                      marginTop: '1rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ${transactionInfo.amount.toFixed(2)}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    // Stop sounds when closing modal
+                    if (failureSoundRef.current) {
+                      failureSoundRef.current.pause();
+                      failureSoundRef.current.currentTime = 0;
+                    }
+                    if (winnerSoundRef.current) {
+                      winnerSoundRef.current.pause();
+                      winnerSoundRef.current.currentTime = 0;
+                    }
+                    setShowTransactionModal(false);
+                    setTransactionInfo(null);
+                  }}
+                  className="winner-modal-btn"
+                  style={{
+                    background: transactionInfo.isWinner 
+                      ? 'linear-gradient(135deg, #22c55e, #16a34a)' 
+                      : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    borderColor: transactionInfo.isWinner ? '#22c55e' : '#ef4444'
+                  }}
+                >
+                  OK
                 </button>
               </div>
             </div>

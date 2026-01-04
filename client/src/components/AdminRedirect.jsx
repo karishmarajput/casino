@@ -10,7 +10,7 @@ function AdminRedirect() {
   }
   
   // Admin is not logged in, redirect to login
-  return <Navigate to="/admin/login" replace />;
+  return <Navigate to="/login" replace />;
 }
 
 export default AdminRedirect;

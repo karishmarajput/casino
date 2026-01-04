@@ -123,7 +123,7 @@ function Ranking() {
             return (
               <div key={family.captain_id} className="bar-item">
                 <div className="bar-row">
-                  <span className="family-name">{family.captain_name}'s Family</span>
+                  <span className="family-name" title={`${family.captain_name}'s Family`}>{family.captain_name}'s Family</span>
                   <div className="bar-wrapper">
                     <div
                       className="bar-fill"

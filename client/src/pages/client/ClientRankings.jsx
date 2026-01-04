@@ -13,7 +13,7 @@ function ClientRankings() {
   useEffect(() => {
     const clientUser = localStorage.getItem('clientUser');
     if (!clientUser) {
-      navigate('/players/login');
+      navigate('/login');
       return;
     }
 

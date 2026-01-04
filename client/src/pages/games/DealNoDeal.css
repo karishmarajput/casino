@@ -3,6 +3,31 @@
   padding: 0 !important;
 }
 
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.form-select option {
+  background: rgba(20, 20, 30, 0.98);
+  color: #fff;
+}
+
 .dealnodeal-container {
   width: 100%;
   max-width: 100%;
@@ -417,7 +442,7 @@
 }
 
 .dealnodeal-card .form-group input[type="text"] {
-  width: 100%;
+  min-width: 100%;
   padding: 0.75rem;
   border: 2px solid rgba(212, 175, 55, 0.5);
   border-radius: 8px;
@@ -441,7 +466,7 @@
 }
 
 .dealnodeal-card .search-input {
-  width: 100%;
+  min-width: 100%;
   padding: 0.75rem;
   border: 2px solid rgba(212, 175, 55, 0.5);
   border-radius: 8px;
@@ -527,6 +552,12 @@
 .dealnodeal-card .selected-user-tag:hover {
   background: rgba(212, 175, 55, 0.3);
   transform: scale(1.05);
+}
+
+.dealnodeal-card .selected-user-tag::after {
+  content: ' ×';
+  margin-left: 0.25rem;
+  font-size: 1.1rem;
 }
 
 .dealnodeal-card .message {
@@ -636,7 +667,6 @@
 .winner-modal-title {
   color: #d4af37;
   font-size: 1.8rem;
-  margin-bottom: 1.5rem;
   text-align: center;
   text-shadow: 
     2px 2px 4px rgba(0, 0, 0, 0.8),
@@ -689,5 +719,30 @@
   background: linear-gradient(135deg, rgba(212, 175, 55, 1), rgba(212, 175, 55, 0.9));
   box-shadow: 0 4px 20px rgba(212, 175, 55, 0.8);
   transform: translateY(-2px);
+}
+
+/* Transaction Modal Styles */
+.transaction-modal.transaction-winner {
+  border-color: #22c55e;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.8),
+    0 0 80px rgba(34, 197, 94, 0.5),
+    inset 0 0 30px rgba(34, 197, 94, 0.1);
+}
+
+.transaction-modal.transaction-deduct {
+  border-color: #ef4444;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.8),
+    0 0 80px rgba(239, 68, 68, 0.5),
+    inset 0 0 30px rgba(239, 68, 68, 0.1);
+}
+
+.transaction-modal.transaction-winner .winner-modal-btn {
+  color: #fff;
+}
+
+.transaction-modal.transaction-deduct .winner-modal-btn {
+  color: #fff;
 }
 

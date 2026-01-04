@@ -274,8 +274,13 @@
   color: #d4af37;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
-  min-width: 200px;
+  width: 250px;
+  min-width: 250px;
+  max-width: 250px;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .bar-wrapper {
