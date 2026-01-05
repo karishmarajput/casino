@@ -77,7 +77,7 @@ function Landing() {
           <div className="floating-stats">
             <div className="floating-stat-box">
               <div className="floating-stat-icon">💰</div>
-              <div className="floating-stat-value">${parseInt(stats.totalPot)}</div>
+              <div className="floating-stat-value">₵{parseInt(stats.totalPot)}</div>
               <div className="floating-stat-label">Total Pot</div>
             </div>
             <div className="floating-stat-box">

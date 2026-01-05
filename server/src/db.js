@@ -330,6 +330,22 @@ function runMigrations() {
       } else {
         console.log("Group_members table created or already exists");
       }
+    });
+
+    db.run(`CREATE TABLE IF NOT EXISTS rewards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      image_url TEXT,
+      price INTEGER NOT NULL DEFAULT 0,
+      quantity INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error("Error creating rewards table:", err);
+      } else {
+        console.log("Rewards table created or already exists");
+      }
       resolve();
     });
   });

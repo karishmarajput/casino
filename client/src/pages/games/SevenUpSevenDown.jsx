@@ -443,7 +443,7 @@ function SevenUpSevenDown({ onBack }) {
                               className="checkbox-input"
                             />
                             <span>
-                              {user.name} (${parseInt(user.balance)})
+                              {user.name} (₵{parseInt(user.balance)})
                             </span>
                           </div>
                         ))}
@@ -519,7 +519,7 @@ function SevenUpSevenDown({ onBack }) {
                               className="checkbox-input"
                             />
                             <span>
-                              {user.name} (${parseInt(user.balance)})
+                              {user.name} (₵{parseInt(user.balance)})
                             </span>
                           </div>
                         ))}
@@ -561,8 +561,8 @@ function SevenUpSevenDown({ onBack }) {
               <div className="game-active-section">
                 <h3 className="game-active-title">Game Active</h3>
                 <div className="game-info seven-up-down-info">
-                  <p><strong>Entry Fee:</strong> ${currentGame.entry_fee}</p>
-                  <p><strong>Pot Amount:</strong> ${parseInt(currentGame.pot_amount)}</p>
+                  <p><strong>Entry Fee:</strong> ₵{currentGame.entry_fee}</p>
+                  <p><strong>Pot Amount:</strong> ₵{parseInt(currentGame.pot_amount)}</p>
                   <p><strong>7 Up Participants ({selectedUpUsers.length}):</strong></p>
                   <div className="participants-list">
                     {selectedUpUsers.length > 0 ? (
@@ -642,10 +642,10 @@ function SevenUpSevenDown({ onBack }) {
                     <div className="game-label">
                       Game #{game.id} - {game.status === 'completed' ? `Winner: ${game.winner === 'up' ? '7 Up' : '7 Down'}` : 'Active'}
                     </div>
-                    <div className="game-amount">Pot: ${parseInt(game.pot_amount)}</div>
+                    <div className="game-amount">Pot: ₵{parseInt(game.pot_amount)}</div>
                   </div>
                   <div className="game-details">
-                    Entry Fee: ${game.entry_fee} | {new Date(game.created_at).toLocaleString()}
+                    Entry Fee: ₵{game.entry_fee} | {new Date(game.created_at).toLocaleString()}
                   </div>
                 </div>
               ))

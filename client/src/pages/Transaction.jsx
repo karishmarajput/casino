@@ -127,7 +127,7 @@ function Transaction() {
       }));
 
       await adminAxios.post('/api/transactions/batch', { transactions });
-      showMessage(`Transaction completed successfully! ${fromUserIds.length} user(s) sent $${amountInt} each.`, 'success');
+      showMessage(`Transaction completed successfully! ${fromUserIds.length} user(s) sent ₵${amountInt} each.`, 'success');
       setShowSuccessAnimation(true);
       
       // Play coin falling sound using Web Audio API
@@ -298,7 +298,7 @@ function Transaction() {
                             />
                           )}
                           <span>
-                            {user.name} {user.id !== 'pot' && `($${parseInt(user.balance)})`}
+                            {user.name} {user.id !== 'pot' && `(₵${parseInt(user.balance)})`}
                           </span>
                         </div>
                       ))}
@@ -361,7 +361,7 @@ function Transaction() {
                           }}
                           onMouseDown={(e) => e.preventDefault()}
                         >
-                          {user.name} {user.id !== 'pot' && `($${parseFloat(user.balance).toFixed(2)})`}
+                          {user.name} {user.id !== 'pot' && `(₵${parseFloat(user.balance).toFixed(2)})`}
                         </div>
                       ))}
                     </div>
@@ -407,11 +407,11 @@ function Transaction() {
               {showSuccessAnimation && (
                 <div className="money-transfer-animation">
                   <div className="coin-animation">
-                    <div className="coin coin-1">$</div>
-                    <div className="coin coin-2">$</div>
-                    <div className="coin coin-3">$</div>
-                    <div className="coin coin-4">$</div>
-                    <div className="coin coin-5">$</div>
+                    <div className="coin coin-1">₵</div>
+                    <div className="coin coin-2">₵</div>
+                    <div className="coin coin-3">₵</div>
+                    <div className="coin coin-4">₵</div>
+                    <div className="coin coin-5">₵</div>
                   </div>
                 </div>
               )}
@@ -441,7 +441,7 @@ function Transaction() {
                         <span className="transaction-game-name"> • {transaction.game_name || transaction.game_type}</span>
                       )}
                     </div>
-                    <div className="transaction-amount">${parseInt(transaction.amount)}</div>
+                    <div className="transaction-amount">₵{parseInt(transaction.amount)}</div>
                   </div>
                   <div className="transaction-date">{formatDate(transaction.created_at)}</div>
                 </div>

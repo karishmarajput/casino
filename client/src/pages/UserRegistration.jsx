@@ -160,7 +160,7 @@ function UserRegistration() {
                 <option value="">-- Select a Captain --</option>
                 {captains.map((captain) => (
                   <option key={captain.id} value={captain.id}>
-                    {captain.name} (${parseInt(captain.balance)})
+                    {captain.name} (₵{parseInt(captain.balance)})
                   </option>
                 ))}
               </select>

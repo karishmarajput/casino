@@ -116,7 +116,7 @@ function WinnerModal({
                   <div className="winner-number-info">Number: {winner.number}</div>
                 )}
                 {winner.amount !== undefined && (
-                  <div className="winner-amount-large">${typeof winner.amount === 'number' ? winner.amount.toFixed(2) : parseFloat(winner.amount).toFixed(2)}</div>
+                  <div className="winner-amount-large">₵{typeof winner.amount === 'number' ? winner.amount.toFixed(2) : parseFloat(winner.amount).toFixed(2)}</div>
                 )}
               </div>
             ))}

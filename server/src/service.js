@@ -2225,6 +2225,75 @@ const adminService = {
   }
 };
 
+const rewardService = {
+  async createReward(rewardData) {
+    return new Promise((resolve, reject) => {
+      const { name, image_url, price, quantity } = rewardData;
+      db.run(
+        `INSERT INTO rewards (name, image_url, price, quantity) VALUES (?, ?, ?, ?)`,
+        [name, image_url || null, price || 0, quantity || 0],
+        function(err) {
+          if (err) {
+            reject(err);
+          } else {
+            db.get(`SELECT * FROM rewards WHERE id = ?`, [this.lastID], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            });
+          }
+        }
+      );
+    });
+  },
+
+  async getAllRewards() {
+    return new Promise((resolve, reject) => {
+      db.all(`SELECT * FROM rewards ORDER BY created_at DESC`, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  },
+
+  async getRewardById(id) {
+    return new Promise((resolve, reject) => {
+      db.get(`SELECT * FROM rewards WHERE id = ?`, [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+
+  async updateReward(id, rewardData) {
+    return new Promise((resolve, reject) => {
+      const { name, image_url, price, quantity } = rewardData;
+      db.run(
+        `UPDATE rewards SET name = ?, image_url = ?, price = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [name, image_url || null, price, quantity, id],
+        function(err) {
+          if (err) {
+            reject(err);
+          } else {
+            db.get(`SELECT * FROM rewards WHERE id = ?`, [id], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            });
+          }
+        }
+      );
+    });
+  },
+
+  async deleteReward(id) {
+    return new Promise((resolve, reject) => {
+      db.run(`DELETE FROM rewards WHERE id = ?`, [id], function(err) {
+        if (err) reject(err);
+        else resolve({ message: 'Reward deleted successfully' });
+      });
+    });
+  }
+};
+
 module.exports = {
   userService,
   potService,
@@ -2232,6 +2301,7 @@ module.exports = {
   familyService,
   gameService,
   adminService,
-  groupService
+  groupService,
+  rewardService
 };
 

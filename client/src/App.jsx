@@ -8,6 +8,8 @@ import FamilyView from './pages/FamilyView';
 import Games from './pages/Games';
 import FlushDatabase from './pages/FlushDatabase';
 import Groups from './pages/Groups';
+import Rewards from './pages/Rewards';
+import RewardsView from './pages/RewardsView';
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientTransactionHistory from './pages/client/ClientTransactionHistory';
 import ClientGameHistory from './pages/client/ClientGameHistory';
@@ -28,7 +30,7 @@ function Navigation() {
 
   const isActive = (path) => {
     return location.pathname === path || 
-           (path === '/admin' && (location.pathname === '/admin' || location.pathname === '/register' || location.pathname === '/transaction' || location.pathname === '/flush-database'));
+           (path === '/admin' && (location.pathname === '/admin' || location.pathname === '/register' || location.pathname === '/transaction' || location.pathname === '/flush-database' || location.pathname === '/groups' || location.pathname === '/rewards'));
   };
 
   const handleAdminLogout = () => {
@@ -75,6 +77,12 @@ function Navigation() {
               >
                 Games
               </Link>
+              <Link 
+                to="/rewards-view" 
+                className={location.pathname === '/rewards-view' ? 'nav-link active' : 'nav-link'}
+              >
+                Rewards
+              </Link>
               <div 
                 className={`nav-dropdown ${isActive('/admin') ? 'active' : ''}`}
                 onMouseEnter={() => setDropdownOpen(true)}
@@ -106,6 +114,13 @@ function Navigation() {
                       onClick={() => setDropdownOpen(false)}
                     >
                       Groups
+                    </Link>
+                    <Link 
+                      to="/rewards" 
+                      className={location.pathname === '/rewards' ? 'dropdown-item active' : 'dropdown-item'}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      Reward Management
                     </Link>
                     <Link 
                       to="/flush-database" 
@@ -220,6 +235,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Groups />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/rewards-view" 
+            element={
+              <ProtectedRoute>
+                <RewardsView />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/rewards" 
+            element={
+              <ProtectedRoute>
+                <Rewards />
               </ProtectedRoute>
             } 
           />

@@ -337,7 +337,7 @@ function Groups() {
                         className="user-dropdown-item"
                         onClick={() => handleAddMembers([user.id])}
                       >
-                        {user.name} (${parseInt(user.balance)})
+                        {user.name} (₵{parseInt(user.balance)})
                       </div>
                     ))}
                   </div>
@@ -352,7 +352,7 @@ function Groups() {
                   {groupMembers.map((member) => (
                     <div key={member.id} className="member-item">
                       <span className="member-name">{member.name}</span>
-                      <span className="member-balance">${parseInt(member.balance)}</span>
+                      <span className="member-balance">₵{parseInt(member.balance)}</span>
                       <button
                         className="remove-member-btn"
                         onClick={() => handleRemoveMember(member.id)}

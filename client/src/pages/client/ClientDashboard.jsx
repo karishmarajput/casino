@@ -183,7 +183,7 @@ function ClientDashboard() {
             <div className="client-stat-icon">💰</div>
             <div className="client-stat-content">
               <div className="client-stat-label">Balance</div>
-              <div className="client-stat-value">${parseInt(user.balance)}</div>
+              <div className="client-stat-value">₵{parseInt(user.balance)}</div>
             </div>
           </div>
 
@@ -214,7 +214,7 @@ function ClientDashboard() {
             <div className="client-stat-icon">👨‍👩‍👧‍👦</div>
             <div className="client-stat-content">
               <div className="client-stat-label">Total Family Balance</div>
-              <div className="client-stat-value">${parseInt(totalFamilyBalance)}</div>
+              <div className="client-stat-value">₵{parseInt(totalFamilyBalance)}</div>
             </div>
           </div>
         </div>

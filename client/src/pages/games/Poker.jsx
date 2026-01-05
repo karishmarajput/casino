@@ -6,6 +6,7 @@ import './Poker.css';
 
 function Poker({ onBack }) {
   const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [chipAmount, setChipAmount] = useState('');
   const [currentGame, setCurrentGame] = useState(null);
@@ -27,6 +28,7 @@ function Poker({ onBack }) {
 
   useEffect(() => {
     fetchUsers();
+    fetchGroups();
     checkActiveGame();
   }, []);
 
@@ -35,6 +37,34 @@ function Poker({ onBack }) {
       const response = await adminAxios.get('/api/users');
       setUsers(response.data);
     } catch (error) {
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const response = await adminAxios.get('/api/groups');
+      setGroups(response.data);
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  };
+
+  const handleGroupSelect = async (groupId) => {
+    try {
+      const response = await adminAxios.get(`/api/groups/${groupId}`);
+      const memberIds = response.data.members.map(m => m.id.toString());
+      const newParticipants = [...new Set([...selectedParticipants, ...memberIds])];
+      setSelectedParticipants(newParticipants);
+      const newAmounts = { ...participantAmounts };
+      memberIds.forEach(userId => {
+        if (!newAmounts[userId]) {
+          newAmounts[userId] = '';
+        }
+      });
+      setParticipantAmounts(newAmounts);
+      showMessage(`Added ${memberIds.length} member(s) from group`, 'success');
+    } catch (error) {
+      showMessage(error.response?.data?.error || 'Failed to load group members', 'error');
     }
   };
 
@@ -164,7 +194,7 @@ function Poker({ onBack }) {
     const potAmount = parseInt(currentGame.pot_amount || 0);
 
     if (totalAmount !== potAmount) {
-      showMessage(`Total amount ($${totalAmount}) must equal pot amount ($${potAmount})`, 'error');
+      showMessage(`Total amount (₵${totalAmount}) must equal pot amount (₵${potAmount})`, 'error');
       setLoading(false);
       return;
     }
@@ -347,6 +377,29 @@ function Poker({ onBack }) {
               />
             </div>
 
+            {groups.length > 0 && (
+              <div className="form-group">
+                <label>Select Group (Optional)</label>
+                <select
+                  className="form-select"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleGroupSelect(parseInt(e.target.value));
+                      e.target.value = '';
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Choose a group to add all members...</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.member_count || 0} members)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className={`form-group ${showDropdown ? 'dropdown-active' : ''}`}>
               <label>Select Participants</label>
               <div className="dropdown-container">
@@ -376,7 +429,7 @@ function Poker({ onBack }) {
                           className="checkbox-input"
                         />
                         <span>
-                          {user.name} (${parseInt(user.balance)})
+                          {user.name} (₵{parseInt(user.balance)})
                         </span>
                       </div>
                     ))}
@@ -433,7 +486,7 @@ function Poker({ onBack }) {
           {currentGame && (
             <div className="pot-display">
               <div className="pot-label">💰</div>
-              <div className="pot-amount">${potAmount}</div>
+              <div className="pot-amount">₵{potAmount}</div>
             </div>
           )}
 
@@ -445,7 +498,7 @@ function Poker({ onBack }) {
                 <div key={user.id} className="participant-amount-row">
                   <div className="participant-name">{user.name}</div>
                   <div className="amount-input-wrapper">
-                    <span className="currency-symbol">$</span>
+                    <span className="currency-symbol">₵</span>
                     <input
                       type="text"
                       value={participantAmounts[user.id.toString()] || ''}
@@ -461,13 +514,13 @@ function Poker({ onBack }) {
             <div className="total-display">
               <div className="total-label">Total:</div>
               <div className={`total-amount ${isValid ? 'valid' : 'invalid'}`}>
-                ${totalAmount}
+                ₵{totalAmount}
               </div>
             </div>
 
             {!isValid && totalAmount > 0 && (
               <div className="validation-message">
-                Total amount must equal pot amount (${potAmount})
+                Total amount must equal pot amount (₵{potAmount})
               </div>
             )}
           </div>

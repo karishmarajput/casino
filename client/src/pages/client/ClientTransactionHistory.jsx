@@ -119,7 +119,7 @@ function ClientTransactionHistory() {
                       )}
                     </div>
                     <div className={`client-transaction-amount ${type}`}>
-                      {type === 'credit' ? '+' : '-'}${parseInt(transaction.amount)}
+                      {type === 'credit' ? '+' : '-'}₵{parseInt(transaction.amount)}
                     </div>
                   </div>
                   <div className="client-transaction-date">

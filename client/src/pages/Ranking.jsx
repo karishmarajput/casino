@@ -84,7 +84,7 @@ function Ranking() {
 
         <div className="pot-display pot-card-casino">
           <div className="pot-icon">💰</div>
-          <div className="pot-amount">${parseInt(potBalance || 0)}</div>
+          <div className="pot-amount">₵{parseInt(potBalance || 0)}</div>
         </div>
 
       {viewMode === 'individual' && (
@@ -107,7 +107,7 @@ function Ranking() {
                 <div className="card-rank">#{index + 1}</div>
                 <div className="card-name">{user.name}</div>
                 <div className="card-balance">
-                  ${parseInt(user.balance)}
+                  ₵{parseInt(user.balance)}
                 </div>
               </div>
             );

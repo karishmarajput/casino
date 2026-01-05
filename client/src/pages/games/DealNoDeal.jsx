@@ -459,7 +459,7 @@ function DealNoDeal({ onBack }) {
       });
 
       const playerName = users.find(u => u.id === playerId)?.name;
-      showMessage(`${isDeduct ? 'Deducted' : 'Added'} $${amount.toFixed(2)} ${isDeduct ? 'from' : 'to'} ${playerName}`, 'success');
+      showMessage(`${isDeduct ? 'Deducted' : 'Added'} ₵${amount.toFixed(2)} ${isDeduct ? 'from' : 'to'} ${playerName}`, 'success');
       
       // Play appropriate sound and show modal based on operation
       if (isDeduct) {
@@ -608,7 +608,7 @@ function DealNoDeal({ onBack }) {
                           className="checkbox-input"
                         />
                         <span>
-                          {user.name} (${parseInt(user.balance)})
+                          {user.name} (₵{parseInt(user.balance)})
                         </span>
                       </div>
                     ))}
@@ -696,7 +696,7 @@ function DealNoDeal({ onBack }) {
                     {selectedPlayerUsers.map((player, index) => (
                       <div key={player.id} className="selected-player-card">
                         <div className="player-name">{player.name}</div>
-                        <div className="player-balance">${parseInt(player.balance)}</div>
+                        <div className="player-balance">₵{parseInt(player.balance)}</div>
                       </div>
                     ))}
                   </div>
@@ -865,7 +865,7 @@ function DealNoDeal({ onBack }) {
                       fontWeight: '600'
                     }}
                   >
-                    ${transactionInfo.amount.toFixed(2)}
+                    ₵{transactionInfo.amount.toFixed(2)}
                   </div>
                 </div>
                 <button 

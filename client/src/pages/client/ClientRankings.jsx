@@ -82,7 +82,7 @@ function ClientRankings() {
                       {player.name}
                       {isCurrentUser && <span className="client-you-badge">You</span>}
                     </div>
-                    <div className="client-ranking-balance">${parseInt(player.balance)}</div>
+                    <div className="client-ranking-balance">₵{parseInt(player.balance)}</div>
                   </div>
                 </div>
               );

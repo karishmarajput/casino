@@ -696,7 +696,7 @@ function Roulette({ onBack }) {
                           className="checkbox-input"
                         />
                         <span>
-                          {user.name} (${parseInt(user.balance)})
+                          {user.name} (₵{parseInt(user.balance)})
                         </span>
                       </div>
                     ))}
@@ -829,7 +829,7 @@ function Roulette({ onBack }) {
               <div className="pot-amount-display">
                 <div className="pot-amount-box">
                   <span className="pot-amount-label">💰</span>
-                  <span className="pot-amount-text">${parseInt(currentGame.pot_amount || 0)}</span>
+                  <span className="pot-amount-text">₵{parseInt(currentGame.pot_amount || 0)}</span>
                 </div>
               </div>
             )}
@@ -1067,7 +1067,7 @@ function Roulette({ onBack }) {
                           className="checkbox-input"
                         />
                         <span>
-                          {user.name} (${parseInt(user.balance)})
+                          {user.name} (₵{parseInt(user.balance)})
                         </span>
                       </div>
                     ))}

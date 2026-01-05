@@ -106,7 +106,7 @@ function ClientGameHistory() {
                   </div>
                   <div className="client-game-detail-item">
                     <span className="client-detail-label">Pot Amount:</span>
-                    <span className="client-detail-value">${parseInt(game.pot_amount || 0)}</span>
+                    <span className="client-detail-value">₵{parseInt(game.pot_amount || 0)}</span>
                   </div>
                   {game.winner && (
                     <div className="client-game-detail-item">

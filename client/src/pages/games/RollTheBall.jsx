@@ -370,7 +370,7 @@ function RollTheBall({ onBack }) {
                           className="checkbox-input"
                         />
                         <span>
-                          {user.name} (${parseInt(user.balance)})
+                          {user.name} (₵{parseInt(user.balance)})
                         </span>
                       </div>
                     ))}
@@ -424,7 +424,7 @@ function RollTheBall({ onBack }) {
           {currentGame && (
             <div className="pot-display">
               <div className="pot-label">💰</div>
-              <div className="pot-amount">${parseInt(currentGame.pot_amount || 0)}</div>
+              <div className="pot-amount">₵{parseInt(currentGame.pot_amount || 0)}</div>
             </div>
           )}
 

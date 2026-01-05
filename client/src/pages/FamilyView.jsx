@@ -74,21 +74,21 @@ function FamilyView() {
                 <h3 className="captain-name">{family.captain.name}'s Family</h3>
               </div>
               <div className="family-total">
-                Total: <span className="amount">${parseFloat(family.familyTotal).toFixed(2)}</span>
+                Total: <span className="amount">₵{parseFloat(family.familyTotal).toFixed(2)}</span>
               </div>
             </div>
             
             <div className="family-members">
               <div className="member-row captain-row">
                 <span className="member-name">{family.captain.name} (Captain)</span>
-                <span className="member-balance">${parseInt(family.captain.balance)}</span>
+                <span className="member-balance">₵{parseInt(family.captain.balance)}</span>
               </div>
               
               {family.members.map((member) => (
                 <div key={member.id} className="member-row">
                   <span className="member-name">{member.name}</span>
                   <div className="member-actions">
-                    <span className="member-balance">${parseInt(member.balance)}</span>
+                    <span className="member-balance">₵{parseInt(member.balance)}</span>
                     <button
                       className="delete-btn"
                       onClick={() => handleDeleteMember(member.id, member.name)}
