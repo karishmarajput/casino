@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -10,14 +11,10 @@ const { authenticateAdmin } = require('./src/middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads', 'rewards');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -31,7 +28,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -49,8 +46,6 @@ const upload = multer({
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 initializeDatabase().then(() => {
@@ -62,6 +57,7 @@ initializeDatabase().then(() => {
   app.get('/api/client/users/:userId/transactions', userController.getUserTransactions);
   app.get('/api/client/users/:userId/games', userController.getUserGames);
   app.get('/api/client/users/:userId/family-balance', userController.getUserFamilyBalance);
+  app.get('/api/client/rewards', rewardController.getAllRewards);
   app.post('/api/admin/login', adminController.login);
   app.get('/api/users', authenticateAdmin, userController.getUsers);
   app.get('/api/users/captains', authenticateAdmin, userController.getCaptains);
@@ -87,9 +83,9 @@ initializeDatabase().then(() => {
   app.post('/api/games/:gameId/roulette/next-round', authenticateAdmin, gameController.startNextRound);
   app.post('/api/games/:gameId/rolltheball/select-winner', authenticateAdmin, gameController.selectRollTheBallWinner);
   app.post('/api/games/:gameId/poker/distribute', authenticateAdmin, gameController.distributePokerPot);
+  app.post('/api/games/:gameId/dealnodeal/update-winners', authenticateAdmin, gameController.updateDealNoDealWinners);
   app.post('/api/admin/flush-database', authenticateAdmin, adminController.flushDatabase);
   
-  // Groups routes
   app.get('/api/groups', authenticateAdmin, groupController.getAllGroups);
   app.get('/api/groups/:id', authenticateAdmin, groupController.getGroupById);
   app.post('/api/groups', authenticateAdmin, groupController.createGroup);
@@ -99,14 +95,12 @@ initializeDatabase().then(() => {
   app.delete('/api/groups/:id/members/:userId', authenticateAdmin, groupController.removeMemberFromGroup);
   app.post('/api/groups/:id/members/batch', authenticateAdmin, groupController.addMultipleMembersToGroup);
 
-  // Rewards routes
   app.get('/api/rewards', authenticateAdmin, rewardController.getAllRewards);
   app.get('/api/rewards/:id', authenticateAdmin, rewardController.getRewardById);
   app.post('/api/rewards', authenticateAdmin, upload.single('image'), rewardController.createReward);
   app.put('/api/rewards/:id', authenticateAdmin, upload.single('image'), rewardController.updateReward);
   app.delete('/api/rewards/:id', authenticateAdmin, rewardController.deleteReward);
   
-  // Image upload endpoint
   app.post('/api/rewards/upload', authenticateAdmin, upload.single('image'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });

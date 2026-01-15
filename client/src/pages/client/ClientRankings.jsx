@@ -35,7 +35,7 @@ function ClientRankings() {
 
   const handleLogout = () => {
     localStorage.removeItem('clientUser');
-    navigate('/players/login');
+    navigate('/login');
   };
 
   if (loading) {
@@ -57,11 +57,11 @@ function ClientRankings() {
       </header>
 
       <div className="client-page-header">
-        <Link to="/players/dashboard" className="client-back-btn">← Back</Link>
-        <h2>Player Rankings</h2>
+        <Link to="/players/dashboard" className="client-back-btn">←</Link>
+        <h4>Player Rankings</h4>
       </div>
 
-      <main className="client-ranking-main">
+      <div className="client-ranking-main">
         {rankings.length === 0 ? (
           <div className="client-empty-state">
             <div className="client-empty-icon">🏆</div>
@@ -89,7 +89,7 @@ function ClientRankings() {
             })}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

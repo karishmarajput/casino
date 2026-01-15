@@ -132,7 +132,7 @@ function ClientDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('clientUser');
-    navigate('/players/login');
+    navigate('/login');
   };
 
   const handleReload = () => {
@@ -238,6 +238,13 @@ function ClientDashboard() {
             <div className="client-card-content">
               <div className="client-card-icon">🎮</div>
               <h3 className="client-card-title">Game History</h3>
+            </div>
+          </Link>
+
+          <Link to="/players/rewards" className="client-content-card clickable">
+            <div className="client-card-content">
+              <div className="client-card-icon">🎁</div>
+              <h3 className="client-card-title">Rewards</h3>
             </div>
           </Link>
         </div>

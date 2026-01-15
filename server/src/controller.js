@@ -502,6 +502,20 @@ const gameController = {
         res.status(500).json({ error: error.message });
       }
     }
+  },
+
+  updateDealNoDealWinners: async (req, res) => {
+    try {
+      const gameId = req.params.gameId;
+      const result = await gameService.updateDealNoDealWinners(gameId);
+      res.json(result);
+    } catch (error) {
+      if (error.error) {
+        res.status(400).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
   }
 };
 

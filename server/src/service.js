@@ -1,53 +1,5 @@
 const { db } = require('./db');
 const bcrypt = require('bcrypt');
-const XLSX = require('xlsx');
-const fs = require('fs');
-const path = require('path');
-
-// Helper function to write user data to Excel
-function writeToExcel(userData) {
-  try {
-    // Excel file will be in the server root directory
-    const excelPath = path.join(__dirname, '..', 'users.xlsx');
-    let workbook;
-    let worksheet;
-    let existingData = [];
-    
-    // Check if file exists
-    if (fs.existsSync(excelPath)) {
-      workbook = XLSX.readFile(excelPath);
-      const sheetName = workbook.SheetNames[0];
-      worksheet = workbook.Sheets[sheetName];
-      existingData = XLSX.utils.sheet_to_json(worksheet);
-    } else {
-      // Create new workbook
-      workbook = XLSX.utils.book_new();
-      existingData = [];
-    }
-    
-    // Check if user already exists in Excel
-    const userExists = existingData.some(row => row['User ID'] === userData.id);
-    
-    if (!userExists) {
-      // Add new user data
-      existingData.push({
-        'User ID': userData.id,
-        'Username': userData.name,
-        'Password': userData.password
-      });
-      
-      // Create new sheet with updated data
-      worksheet = XLSX.utils.json_to_sheet(existingData);
-      workbook.Sheets['Users'] = worksheet;
-      
-      // Write to file
-      XLSX.writeFile(workbook, excelPath);
-    }
-  } catch (error) {
-    console.error('Error writing to Excel:', error);
-    // Don't throw error, just log it so user creation can continue
-  }
-}
 
 // Helper function to generate password from username
 function generatePassword(username) {
@@ -93,9 +45,13 @@ const userService = {
         return reject({ error: 'Invalid initial amount. Must be a positive number.' });
       }
       
-      const stmt = db.prepare("INSERT INTO users (name, balance, is_captain, password) VALUES (?, ?, 1, ?)");
       const errors = [];
-      const createdUsers = [];
+      let completed = 0;
+      const total = names.filter(name => name.trim()).length;
+
+      if (total === 0) {
+        return reject({ error: 'No valid names provided' });
+      }
 
       names.forEach((name) => {
         if (name.trim()) {
@@ -103,33 +59,28 @@ const userService = {
           const plainPassword = generatePassword(trimmedName);
           const hashedPassword = bcrypt.hashSync(plainPassword, 10);
           
-          stmt.run(trimmedName, amountInt, hashedPassword, function(err) {
-            if (err && err.message.includes('UNIQUE constraint')) {
-              errors.push(`Captain "${name}" already exists`);
-            } else if (err) {
-              errors.push(`Error creating captain "${name}": ${err.message}`);
-            } else {
-              // Write to Excel
-              createdUsers.push({
-                id: this.lastID,
-                name: trimmedName,
-                password: plainPassword
-              });
-            }
-          });
-        }
-      });
+          db.run("INSERT INTO users (name, balance, is_captain, password) VALUES (?, ?, 1, ?)", 
+            [trimmedName, amountInt, hashedPassword], 
+            function(err) {
+              completed++;
+              
+              if (err && (err.message && err.message.includes('UNIQUE') || err.code === '23505')) {
+                errors.push(`Captain "${name}" already exists`);
+              } else if (err) {
+                errors.push(`Error creating captain "${name}": ${err.message || err}`);
+              }
 
-      stmt.finalize((err) => {
-        if (err) return reject(err);
-        if (errors.length > 0) return reject({ errors });
-        
-        // Write all created users to Excel
-        createdUsers.forEach(user => {
-          writeToExcel(user);
-        });
-        
-        resolve({ message: 'Captains registered successfully' });
+              // Check if all operations are complete
+              if (completed === total) {
+                if (errors.length > 0) {
+                  return reject({ errors });
+                }
+                
+                resolve({ message: 'Captains registered successfully' });
+              }
+            }
+          );
+        }
       });
     });
   },
@@ -145,9 +96,13 @@ const userService = {
         if (err) return reject(err);
         if (!captain) return reject({ error: 'Invalid captain selected' });
 
-        const stmt = db.prepare("INSERT INTO users (name, balance, is_captain, captain_id, password) VALUES (?, ?, 0, ?, ?)");
         const errors = [];
-        const createdUsers = [];
+        let completed = 0;
+        const total = names.filter(name => name.trim()).length;
+
+        if (total === 0) {
+          return reject({ error: 'No valid names provided' });
+        }
 
         names.forEach((name) => {
           if (name.trim()) {
@@ -155,33 +110,28 @@ const userService = {
             const plainPassword = generatePassword(trimmedName);
             const hashedPassword = bcrypt.hashSync(plainPassword, 10);
             
-            stmt.run(trimmedName, amountInt, captainId, hashedPassword, function(err) {
-              if (err && err.message.includes('UNIQUE constraint')) {
-                errors.push(`User "${name}" already exists`);
-              } else if (err) {
-                errors.push(`Error creating user "${name}": ${err.message}`);
-              } else {
-                // Write to Excel
-                createdUsers.push({
-                  id: this.lastID,
-                  name: trimmedName,
-                  password: plainPassword
-                });
-              }
-            });
-          }
-        });
+            db.run("INSERT INTO users (name, balance, is_captain, captain_id, password) VALUES (?, ?, 0, ?, ?)", 
+              [trimmedName, amountInt, captainId, hashedPassword], 
+              function(err) {
+                completed++;
+                
+                if (err && (err.message && err.message.includes('UNIQUE') || err.code === '23505')) {
+                  errors.push(`User "${name}" already exists`);
+                } else if (err) {
+                  errors.push(`Error creating user "${name}": ${err.message || err}`);
+                }
 
-        stmt.finalize((err) => {
-          if (err) return reject(err);
-          if (errors.length > 0) return reject({ errors });
-          
-          // Write all created users to Excel
-          createdUsers.forEach(user => {
-            writeToExcel(user);
-          });
-          
-          resolve({ message: 'Family members registered successfully' });
+                // Check if all operations are complete
+                if (completed === total) {
+                  if (errors.length > 0) {
+                    return reject({ errors });
+                  }
+                  
+                  resolve({ message: 'Family members registered successfully' });
+                }
+              }
+            );
+          }
         });
       });
     });
@@ -339,14 +289,34 @@ const userService = {
 
   getUserGames: (userId) => {
     return new Promise((resolve, reject) => {
+      // Get games where user is in game_participants OR has transactions for the game
       db.all(
-        `SELECT DISTINCT g.*, gp.user_id as participant_user_id
+        `SELECT DISTINCT g.*, 
+         COALESCE(u1.name, u2.name, g.winner) as winner_name,
+         COALESCE(
+           (
+             SELECT array_agg(DISTINCT u.name ORDER BY u.name)
+             FROM game_participants gp2
+             INNER JOIN users u ON gp2.user_id = u.id
+             WHERE gp2.game_id = g.id
+           ),
+           ARRAY[]::text[]
+         ) as participant_names
          FROM games g
-         INNER JOIN game_participants gp ON g.id = gp.game_id
-         WHERE gp.user_id = ?
+         LEFT JOIN users u1 ON g.winner = u1.id::text
+         LEFT JOIN users u2 ON g.winner = u2.name
+         WHERE g.id IN (
+           SELECT DISTINCT game_id 
+           FROM game_participants 
+           WHERE user_id = ? AND game_id IS NOT NULL
+           UNION
+           SELECT DISTINCT game_id 
+           FROM transactions 
+           WHERE (from_user_id = ? OR to_user_id = ?) AND game_id IS NOT NULL
+         )
          ORDER BY g.created_at DESC
          LIMIT 50`,
-        [userId],
+        [userId, userId, userId],
         (err, rows) => {
           if (err) {
             console.error('Error fetching user games:', err);
@@ -363,9 +333,23 @@ const userService = {
           
           const formattedRows = rows.map(row => {
             const gameType = String(row.game_type).toLowerCase().trim();
+            // Parse participant_names array (PostgreSQL returns it as a string like "{name1,name2}" or as an array)
+            let participantNames = [];
+            if (row.participant_names) {
+              if (Array.isArray(row.participant_names)) {
+                participantNames = row.participant_names;
+              } else if (typeof row.participant_names === 'string') {
+                // Remove curly braces and split by comma
+                const namesStr = row.participant_names.replace(/[{}]/g, '');
+                participantNames = namesStr ? namesStr.split(',').map(name => name.trim()).filter(name => name) : [];
+              }
+            }
+            
             return {
               ...row,
-              game_name: gameNameMap[gameType] || row.game_type
+              game_name: gameNameMap[gameType] || row.game_type,
+              winner_name: row.winner_name || null,
+              participant_names: participantNames
             };
           });
           
@@ -866,10 +850,22 @@ const familyService = {
           });
           
           const result = Object.values(families).map(family => {
-            const membersTotal = family.members.reduce((sum, m) => sum + m.balance, 0);
+            const membersTotal = family.members.reduce((sum, m) => {
+              const balance = parseFloat(m.balance) || 0;
+              return sum + balance;
+            }, 0);
+            const captainBalance = parseFloat(family.captain.balance) || 0;
             return {
               ...family,
-              familyTotal: family.captain.balance + membersTotal,
+              captain: {
+                ...family.captain,
+                balance: captainBalance
+              },
+              members: family.members.map(m => ({
+                ...m,
+                balance: parseFloat(m.balance) || 0
+              })),
+              familyTotal: captainBalance + membersTotal,
               memberCount: family.members.length
             };
           });
@@ -1084,10 +1080,11 @@ const gameService = {
                           }
 
                           const choiceValue = (gameType === 'roulette' || gameType === 'rolltheball' || gameType === 'poker') ? '' : (participant.choice || null);
+                          const roundNumber = 1; // Default to round 1 for new games
                           
                           db.run(
-                            "INSERT INTO game_participants (game_id, user_id, choice) VALUES (?, ?, ?)",
-                            [gameId, participant.userId, choiceValue],
+                            "INSERT INTO game_participants (game_id, user_id, choice, round_number) VALUES (?, ?, ?, ?) ON CONFLICT (game_id, user_id, round_number) DO UPDATE SET choice = EXCLUDED.choice",
+                            [gameId, participant.userId, choiceValue, roundNumber],
                             (err) => {
                               if (err) {
                                 hasProcessError = true;
@@ -1147,19 +1144,67 @@ const gameService = {
                   return reject({ error: 'No participants selected this option' });
                 }
 
-                const amountPerWinner = parseFloat(game.pot_amount) / winners.length;
+                const amountPerWinner = Math.round(parseFloat(game.pot_amount) / winners.length * 100) / 100;
                 let processedCount = 0;
                 let hasError = false;
+                const winnerUserIds = winners.map(w => w.user_id);
 
-                winners.forEach((winnerData) => {
-                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amountPerWinner], (err) => {
+                // Get winner names
+                const placeholders = winnerUserIds.map(() => '?').join(',');
+                db.all(
+                  `SELECT name FROM users WHERE id IN (${placeholders})`,
+                  winnerUserIds,
+                  (err, winnerUsers) => {
+                    if (err) {
+                      db.run("ROLLBACK", () => {});
+                      return reject(err);
+                    }
+
+                    const winnerNames = winnerUsers.map(u => u.name).join(', ');
+
+                    function processNextWinner() {
+                      if (hasError) {
+                        return;
+                      }
+
+                      if (processedCount >= winners.length) {
+                        db.run(
+                          "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                          [winnerNames, gameId],
+                          (err) => {
+                            if (err) {
+                              db.run("ROLLBACK", () => {});
+                              return reject(err);
+                            }
+
+                            db.run("COMMIT", (commitErr) => {
+                              if (commitErr) {
+                                db.run("ROLLBACK", () => {});
+                                return reject(commitErr);
+                              }
+
+                              resolve({ 
+                                message: `Pot distributed successfully to ${winners.length} winner(s)`,
+                                winnersCount: winners.length,
+                                amountPerWinner: amountPerWinner
+                              });
+                            });
+                          }
+                        );
+                        return;
+                      }
+
+                  const winnerData = winners[processedCount];
+                  const amount = Math.round(amountPerWinner * 100) / 100;
+
+                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amount], (err) => {
                     if (err) {
                       hasError = true;
                       db.run("ROLLBACK", () => {});
                       return reject(err);
                     }
 
-                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amountPerWinner, winnerData.user_id], (err) => {
+                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amount, winnerData.user_id], (err) => {
                       if (err) {
                         hasError = true;
                         db.run("ROLLBACK", () => {});
@@ -1168,7 +1213,7 @@ const gameService = {
 
                       db.run(
                         "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                        [null, winnerData.user_id, amountPerWinner, gameId],
+                        [null, winnerData.user_id, amount, gameId],
                         (err) => {
                           if (err) {
                             hasError = true;
@@ -1177,36 +1222,16 @@ const gameService = {
                           }
 
                           processedCount++;
-                          if (processedCount === winners.length && !hasError) {
-                            db.run(
-                              "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                              [winner, gameId],
-                              (err) => {
-                                if (err) {
-                                  db.run("ROLLBACK", () => {});
-                                  return reject(err);
-                                }
-
-                                db.run("COMMIT", (commitErr) => {
-                                  if (commitErr) {
-                                    db.run("ROLLBACK", () => {});
-                                    return reject(commitErr);
-                                  }
-
-                                  resolve({ 
-                                    message: `Pot distributed successfully to ${winners.length} winner(s)`,
-                                    winnersCount: winners.length,
-                                    amountPerWinner: amountPerWinner
-                                  });
-                                });
-                              }
-                            );
-                          }
+                          processNextWinner();
                         }
                       );
                     });
                   });
-                });
+                    }
+
+                    processNextWinner();
+                  }
+                );
               }
             );
           });
@@ -1231,33 +1256,45 @@ const gameService = {
             let processedCount = 0;
             let hasError = false;
 
-            participantNumbers.forEach((pn) => {
+            function processNextParticipant() {
+              if (hasError) {
+                return;
+              }
+
+              if (processedCount >= participantNumbers.length) {
+                // All participants processed, commit transaction
+                db.run("COMMIT", (commitErr) => {
+                  if (commitErr) {
+                    db.run("ROLLBACK", () => {});
+                    return reject(commitErr);
+                  }
+                  console.log(`Successfully saved ${processedCount} participant numbers for gameId=${gameId}, roundNumber=${roundNumber}`);
+                  resolve({ message: 'Numbers saved successfully' });
+                });
+                return;
+              }
+
+              const pn = participantNumbers[processedCount];
+              console.log(`Saving participant: userId=${pn.userId}, number=${pn.number}, roundNumber=${roundNumber}`);
+              
               db.run(
-                "INSERT OR REPLACE INTO game_participants (game_id, user_id, choice, number, round_number) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO game_participants (game_id, user_id, choice, number, round_number) VALUES (?, ?, ?, ?, ?) ON CONFLICT (game_id, user_id, round_number) DO UPDATE SET choice = EXCLUDED.choice, number = EXCLUDED.number",
                 [gameId, pn.userId, '', pn.number, roundNumber],
                 (err) => {
                   if (err) {
-                    if (!hasError) {
-                      hasError = true;
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
-                    return;
+                    console.error(`Error saving participant userId=${pn.userId}, number=${pn.number}:`, err);
+                    hasError = true;
+                    db.run("ROLLBACK", () => {});
+                    return reject(err);
                   }
 
                   processedCount++;
-                  if (processedCount === participantNumbers.length && !hasError) {
-                    db.run("COMMIT", (commitErr) => {
-                      if (commitErr) {
-                        db.run("ROLLBACK", () => {});
-                        return reject(commitErr);
-                      }
-                      resolve({ message: 'Numbers saved successfully' });
-                    });
-                  }
+                  processNextParticipant();
                 }
               );
-            });
+            }
+
+            processNextParticipant();
           });
         });
       });
@@ -1368,12 +1405,44 @@ const gameService = {
           return reject({ error: 'Game has not been spun yet' });
         }
 
+        const spinResultInt = parseInt(game.spin_result);
+        
+        // Check all participants across ALL rounds to see what's actually stored
         db.all(
-          "SELECT user_id, number FROM game_participants WHERE game_id = ? AND number = ? AND round_number = ?",
-          [gameId, game.spin_result, game.round_number],
-          (err, winners) => {
-            if (err) return reject(err);
-            resolve({ winners, spinResult: game.spin_result });
+          "SELECT user_id, number, round_number FROM game_participants WHERE game_id = ? ORDER BY round_number, user_id",
+          [gameId],
+          (err, allParticipants) => {
+            if (err) {
+              console.error('Error fetching all participants:', err);
+              return reject(err);
+            }
+            console.log(`Debug - ALL participants for gameId=${gameId} (all rounds):`, JSON.stringify(allParticipants, null, 2));
+            
+            // Check participants with numbers
+            const participantsWithNumbers = allParticipants.filter(p => p.number !== null && p.number !== undefined);
+            console.log(`Debug - Participants WITH numbers:`, JSON.stringify(participantsWithNumbers, null, 2));
+            console.log(`Debug - Looking for spinResult=${spinResultInt}`);
+            
+            // Find winners across all rounds (check all rounds, not just current)
+            db.all(
+              "SELECT user_id, number, round_number FROM game_participants WHERE game_id = ? AND number IS NOT NULL AND CAST(number AS INTEGER) = ?",
+              [gameId, spinResultInt],
+              (err, winners) => {
+                if (err) {
+                  console.error('Error fetching roulette winners:', err);
+                  return reject(err);
+                }
+                console.log(`Roulette winners query: gameId=${gameId}, spinResult=${spinResultInt}, winners found:`, winners.length, winners);
+                
+                if (winners.length === 0) {
+                  console.log('WARNING: No winners found. Checking if number 5 exists in any round...');
+                  const number5Participants = allParticipants.filter(p => p.number !== null && parseInt(p.number) === 5);
+                  console.log(`Participants with number 5:`, JSON.stringify(number5Participants, null, 2));
+                }
+                
+                resolve({ winners, spinResult: game.spin_result });
+              }
+            );
           }
         );
       });
@@ -1454,53 +1523,68 @@ const gameService = {
             let processedCount = 0;
             let hasError = false;
 
-            winnerUserIds.forEach((userId) => {
-              db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amountPerWinner], (err) => {
+            // Get winner names
+            const placeholders = winnerUserIds.map(() => '?').join(',');
+            db.all(
+              `SELECT name FROM users WHERE id IN (${placeholders})`,
+              winnerUserIds,
+              (err, winnerUsers) => {
+                if (err) {
+                  db.run("ROLLBACK", () => {});
+                  return reject(err);
+                }
+
+                const winnerNames = winnerUsers.map(u => u.name).join(', ');
+
+                winnerUserIds.forEach((userId) => {
+                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amountPerWinner], (err) => {
                 if (err) {
                   hasError = true;
                   db.run("ROLLBACK", () => {});
                   return reject(err);
                 }
 
-                db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amountPerWinner, userId], (err) => {
-                  if (err) {
-                    hasError = true;
-                    db.run("ROLLBACK", () => {});
-                    return reject(err);
-                  }
-
-                  db.run(
-                    "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                    [null, userId, amountPerWinner, gameId],
-                    (err) => {
+                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amountPerWinner, userId], (err) => {
                       if (err) {
                         hasError = true;
                         db.run("ROLLBACK", () => {});
                         return reject(err);
                       }
 
-                      processedCount++;
-                      if (processedCount === winnerUserIds.length && !hasError) {
-                        db.run("UPDATE games SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?", [gameId], (err) => {
+                      db.run(
+                        "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
+                        [null, userId, amountPerWinner, gameId],
+                        (err) => {
                           if (err) {
+                            hasError = true;
                             db.run("ROLLBACK", () => {});
                             return reject(err);
                           }
 
-                          db.run("COMMIT", (commitErr) => {
-                            if (commitErr) {
-                              db.run("ROLLBACK", () => {});
-                              return reject(commitErr);
-                            }
-                            resolve({ message: 'Pot distributed successfully', amountPerWinner });
-                          });
-                        });
-                      }
-                    }
-                  );
+                          processedCount++;
+                          if (processedCount === winnerUserIds.length && !hasError) {
+                            db.run("UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?", [winnerNames, gameId], (err) => {
+                              if (err) {
+                                db.run("ROLLBACK", () => {});
+                                return reject(err);
+                              }
+
+                              db.run("COMMIT", (commitErr) => {
+                                if (commitErr) {
+                                  db.run("ROLLBACK", () => {});
+                                  return reject(commitErr);
+                                }
+                                resolve({ message: 'Pot distributed successfully', amountPerWinner });
+                              });
+                            });
+                          }
+                        }
+                      );
+                    });
+                  });
                 });
-              });
-            });
+              }
+            );
           });
         });
       });
@@ -1626,112 +1710,136 @@ const gameService = {
         return;
       }
 
-      db.serialize(() => {
-        db.run("BEGIN TRANSACTION", (beginErr) => {
-          if (beginErr) return reject(beginErr);
+      db.run("BEGIN", (beginErr) => {
+        if (beginErr) return reject(beginErr);
 
-          let checkedCount = 0;
-          let hasError = false;
+        // Check all users first
+        let checkedCount = 0;
+        let hasError = false;
+        const users = [];
 
-          participantIds.forEach((userId) => {
-            db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
-              checkedCount++;
+        function checkNextUser() {
+          if (hasError) return;
+          
+          if (checkedCount >= participantIds.length) {
+            // All users checked, proceed with game update
+            db.get("SELECT round_number, pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
               if (err) {
-                hasError = true;
                 db.run("ROLLBACK", () => {});
                 return reject(err);
               }
 
-              if (!user) {
-                hasError = true;
+              if (!game) {
                 db.run("ROLLBACK", () => {});
-                return reject({ error: `User with id ${userId} not found` });
+                return reject({ error: 'Game not found' });
               }
 
-              if (user.balance < additionalBet) {
-                hasError = true;
+              if (game.status === 'completed') {
                 db.run("ROLLBACK", () => {});
-                return reject({ error: `Insufficient balance for ${user.name}` });
+                return reject({ error: 'Cannot start next round for a completed game' });
               }
 
-              if (checkedCount === participantIds.length && !hasError) {
-                db.get("SELECT round_number, pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
+              const newRoundNumber = (game.round_number || 1) + 1;
+              const totalAdditionalBet = parseInt(additionalBet) * participantIds.length;
+              const newPotAmount = Math.round(parseInt(game.pot_amount || 0)) + totalAdditionalBet;
+
+              db.run(
+                "UPDATE games SET round_number = ?, pot_amount = ?, spin_result = NULL WHERE id = ?",
+                [newRoundNumber, newPotAmount, gameId],
+                (err) => {
                   if (err) {
                     db.run("ROLLBACK", () => {});
                     return reject(err);
                   }
 
-                  if (!game) {
-                    db.run("ROLLBACK", () => {});
-                    return reject({ error: 'Game not found' });
-                  }
+                  // Process all participants
+                  let processedCount = 0;
+                  let processError = false;
 
-                  if (game.status === 'completed') {
-                    db.run("ROLLBACK", () => {});
-                    return reject({ error: 'Cannot start next round for a completed game' });
-                  }
+                  function processNextParticipant() {
+                    if (processError) return;
 
-                  const newRoundNumber = (game.round_number || 1) + 1;
-                  const totalAdditionalBet = parseInt(additionalBet) * participantIds.length;
-                  const newPotAmount = Math.round(parseInt(game.pot_amount || 0)) + totalAdditionalBet;
+                    if (processedCount >= participantIds.length) {
+                      // All participants processed, commit
+                      db.run("COMMIT", (commitErr) => {
+                        if (commitErr) {
+                          db.run("ROLLBACK", () => {});
+                          return reject(commitErr);
+                        }
+                        resolve({ message: 'Next round started successfully', roundNumber: newRoundNumber, newPotAmount });
+                      });
+                      return;
+                    }
 
-                  db.run(
-                    "UPDATE games SET round_number = ?, pot_amount = ?, spin_result = NULL WHERE id = ?",
-                    [newRoundNumber, newPotAmount, gameId],
-                    (err) => {
+                    const userId = participantIds[processedCount];
+                    processedCount++;
+
+                    db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [additionalBet, userId], (err) => {
                       if (err) {
+                        processError = true;
                         db.run("ROLLBACK", () => {});
                         return reject(err);
                       }
 
-                      let processedCount = 0;
-                      participantIds.forEach((userId) => {
-                        db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [additionalBet, userId], (err) => {
-                          if (err) {
-                            hasError = true;
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
+                      db.run("UPDATE pot SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [additionalBet], (err) => {
+                        if (err) {
+                          processError = true;
+                          db.run("ROLLBACK", () => {});
+                          return reject(err);
+                        }
 
-                          db.run("UPDATE pot SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [additionalBet], (err) => {
+                        db.run(
+                          "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 0, 1, ?, ?)",
+                          [userId, null, additionalBet, gameId],
+                          (err) => {
                             if (err) {
-                              hasError = true;
+                              processError = true;
                               db.run("ROLLBACK", () => {});
                               return reject(err);
                             }
 
-                            db.run(
-                              "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 0, 1, ?, ?)",
-                              [userId, null, additionalBet, gameId],
-                              (err) => {
-                                if (err) {
-                                  hasError = true;
-                                  db.run("ROLLBACK", () => {});
-                                  return reject(err);
-                                }
-
-                                processedCount++;
-                                if (processedCount === participantIds.length && !hasError) {
-                                  db.run("COMMIT", (commitErr) => {
-                                    if (commitErr) {
-                                      db.run("ROLLBACK", () => {});
-                                      return reject(commitErr);
-                                    }
-                                    resolve({ message: 'Next round started successfully', roundNumber: newRoundNumber, newPotAmount });
-                                  });
-                                }
-                              }
-                            );
-                          });
-                        });
+                            processNextParticipant();
+                          }
+                        );
                       });
-                    }
-                  );
-                });
-              }
+                    });
+                  }
+
+                  processNextParticipant();
+                }
+              );
             });
+            return;
+          }
+
+          const userId = participantIds[checkedCount];
+          checkedCount++;
+
+          db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
+            if (err) {
+              hasError = true;
+              db.run("ROLLBACK", () => {});
+              return reject(err);
+            }
+
+            if (!user) {
+              hasError = true;
+              db.run("ROLLBACK", () => {});
+              return reject({ error: `User with id ${userId} not found` });
+            }
+
+            if (parseFloat(user.balance) < parseFloat(additionalBet)) {
+              hasError = true;
+              db.run("ROLLBACK", () => {});
+              return reject({ error: `Insufficient balance for ${user.name}` });
+            }
+
+            users.push(user);
+            checkNextUser();
           });
-        });
+        }
+
+        checkNextUser();
       });
     });
   },
@@ -1795,29 +1903,39 @@ const gameService = {
                           return reject(err);
                         }
 
-                        db.run(
-                          "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                          [winnerUserId.toString(), gameId],
-                          (err) => {
-                            if (err) {
-                              db.run("ROLLBACK", () => {});
-                              return reject(err);
-                            }
+                        // Get winner name
+                        db.get("SELECT name FROM users WHERE id = ?", [winnerUserId], (err, winnerUser) => {
+                          if (err) {
+                            db.run("ROLLBACK", () => {});
+                            return reject(err);
+                          }
 
-                            db.run("COMMIT", (commitErr) => {
-                              if (commitErr) {
+                          const winnerName = winnerUser ? winnerUser.name : winnerUserId.toString();
+
+                          db.run(
+                            "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                            [winnerName, gameId],
+                            (err) => {
+                              if (err) {
                                 db.run("ROLLBACK", () => {});
-                                return reject(commitErr);
+                                return reject(err);
                               }
 
-                              resolve({ 
-                                message: 'Winner selected and pot distributed successfully',
-                                winnerUserId: winnerUserId,
-                                potAmount: potAmount
+                              db.run("COMMIT", (commitErr) => {
+                                if (commitErr) {
+                                  db.run("ROLLBACK", () => {});
+                                  return reject(commitErr);
+                                }
+
+                                resolve({ 
+                                  message: 'Winner selected and pot distributed successfully',
+                                  winnerUserId: winnerUserId,
+                                  potAmount: potAmount
+                                });
                               });
-                            });
-                          }
-                        );
+                            }
+                          );
+                        });
                       }
                     );
                   });
@@ -1835,131 +1953,202 @@ const gameService = {
       db.serialize(() => {
         db.run("BEGIN TRANSACTION", (beginErr) => {
           if (beginErr) return reject(beginErr);
-
           db.get("SELECT pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
             if (err) {
               db.run("ROLLBACK", () => {});
               return reject(err);
             }
-
             if (!game) {
               db.run("ROLLBACK", () => {});
               return reject({ error: 'Game not found' });
             }
-
             if (game.status === 'completed') {
               db.run("ROLLBACK", () => {});
               return reject({ error: 'Game is already completed' });
             }
-
-            const potAmount = parseInt(game.pot_amount || 0);
-            const totalDistributed = distribution.reduce((sum, d) => sum + (parseInt(d.amount) || 0), 0);
-            
+            const potAmount = Math.round(parseFloat(game.pot_amount || 0));
+            const totalDistributed = distribution.reduce((sum, d) => {
+              const amount = parseFloat(d.amount) || 0;
+              return sum + Math.round(amount);
+            }, 0);
             if (totalDistributed !== potAmount) {
               db.run("ROLLBACK", () => {});
               return reject({ 
                 error: `Total distribution amount (${totalDistributed}) must equal pot amount (${potAmount})` 
               });
             }
-
             const winnerData = distribution.reduce((max, curr) => 
-              (parseInt(curr.amount) || 0) > (parseInt(max.amount) || 0) ? curr : max
+              (parseFloat(curr.amount) || 0) > (parseFloat(max.amount) || 0) ? curr : max
             );
 
-            const userIds = distribution.map(d => d.userId);
+            const userIds = distribution.map(d => parseInt(d.userId));
+            const placeholders = userIds.map(() => '?').join(',');
             db.all(
-              "SELECT user_id FROM game_participants WHERE game_id = ? AND user_id IN (" + userIds.map(() => '?').join(',') + ")",
+              `SELECT DISTINCT user_id FROM game_participants WHERE game_id = ? AND user_id IN (${placeholders})`,
               [gameId, ...userIds],
               (err, participants) => {
                 if (err) {
+                  console.error('Error checking participants:', err);
                   db.run("ROLLBACK", () => {});
                   return reject(err);
                 }
-
-                if (participants.length !== userIds.length) {
+                const foundUserIds = participants.map(p => p.user_id);
+                const uniqueFoundUserIds = [...new Set(foundUserIds)];
+                const uniqueRequestedUserIds = [...new Set(userIds)];
+                if (uniqueFoundUserIds.length !== uniqueRequestedUserIds.length) {
                   db.run("ROLLBACK", () => {});
-                  return reject({ error: 'Some participants are not in this game' });
+                  return reject({ 
+                    error: `Some participants are not in this game. Requested: [${uniqueRequestedUserIds.join(', ')}], Found: [${uniqueFoundUserIds.join(', ')}]` 
+                  });
                 }
-
-                const validDistributions = distribution.filter(d => (parseInt(d.amount) || 0) > 0);
+                const missingUsers = uniqueRequestedUserIds.filter(id => !uniqueFoundUserIds.includes(id));
+                if (missingUsers.length > 0) {
+                  db.run("ROLLBACK", () => {});
+                  return reject({ 
+                    error: `Some participants are not in this game. Missing user IDs: [${missingUsers.join(', ')}]` 
+                  });
+                }
+                const validDistributions = distribution.filter(d => (parseFloat(d.amount) || 0) > 0);
                 let processedCount = 0;
                 let hasError = false;
-
-                function processNextDistribution() {
-                  if (hasError) {
-                    return;
-                  }
-
-                  if (processedCount >= validDistributions.length) {
-                    db.run(
-                      "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                      [winnerData.userId.toString(), gameId],
-                      (err) => {
-                        if (err) {
-                          db.run("ROLLBACK", () => {});
-                          return reject(err);
-                        }
-
-                        db.run("COMMIT", (commitErr) => {
-                          if (commitErr) {
-                            db.run("ROLLBACK", () => {});
-                            return reject(commitErr);
-                          }
-
-                          resolve({ 
-                            message: 'Pot distributed successfully',
-                            winnerUserId: winnerData.userId,
-                            distribution: distribution
-                          });
-                        });
-                      }
-                    );
-                    return;
-                  }
-
-                  const dist = validDistributions[processedCount];
-                  const amount = parseInt(dist.amount) || 0;
-
-                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amount], (err) => {
+                
+                // Get winner names (all users who received distribution)
+                const winnerUserIds = validDistributions.map(d => parseInt(d.userId));
+                const winnerPlaceholders = winnerUserIds.map(() => '?').join(',');
+                db.all(
+                  `SELECT name FROM users WHERE id IN (${winnerPlaceholders})`,
+                  winnerUserIds,
+                  (err, winnerUsers) => {
                     if (err) {
-                      hasError = true;
                       db.run("ROLLBACK", () => {});
                       return reject(err);
                     }
 
-                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amount, dist.userId], (err) => {
+                    const winnerNames = winnerUsers.map(u => u.name).join(', ');
+
+                    function processNextDistribution() {
+                      if (hasError) {
+                        return;
+                      }
+                      if (processedCount >= validDistributions.length) {
+                        db.run(
+                          "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                          [winnerNames, gameId],
+                          (err) => {
+                            if (err) {
+                              db.run("ROLLBACK", () => {});
+                              return reject(err);
+                            }
+                            db.run("COMMIT", (commitErr) => {
+                              if (commitErr) {
+                                db.run("ROLLBACK", () => {});
+                                return reject(commitErr);
+                              }
+                            resolve({ 
+                              message: 'Pot distributed successfully',
+                              winnerUserId: winnerData.userId,
+                              distribution: distribution
+                            });
+                          });
+                        }
+                      );
+                      return;
+                    }
+                    const dist = validDistributions[processedCount];
+                    const amount = Math.round(parseFloat(dist.amount) || 0);
+                    db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amount], (err) => {
                       if (err) {
                         hasError = true;
                         db.run("ROLLBACK", () => {});
                         return reject(err);
                       }
-
-                      db.run(
-                        "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                        [null, dist.userId, amount, gameId],
-                        (err) => {
-                          if (err) {
-                            hasError = true;
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
-
-                          processedCount++;
-                          processNextDistribution();
+                      db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amount, dist.userId], (err) => {
+                        if (err) {
+                          hasError = true;
+                          db.run("ROLLBACK", () => {});
+                          return reject(err);
                         }
-                      );
+                        db.run(
+                          "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
+                          [null, dist.userId, amount, gameId],
+                          (err) => {
+                            if (err) {
+                              hasError = true;
+                              db.run("ROLLBACK", () => {});
+                              return reject(err);
+                            }
+                            processedCount++;
+                            processNextDistribution();
+                          }
+                        );
+                      });
                     });
-                  });
-                }
+                  }
 
-                processNextDistribution();
+                    processNextDistribution();
+                  }
+                );
               }
             );
           });
         });
       });
     });
-  }
+  },
+
+  updateDealNoDealWinners: (gameId) => {
+    return new Promise((resolve, reject) => {
+      db.serialize(() => {
+        // Get all unique user IDs who received money from pot for this game
+        db.all(
+          "SELECT DISTINCT to_user_id FROM transactions WHERE game_id = ? AND from_pot = 1 AND to_user_id IS NOT NULL",
+          [gameId],
+          (err, transactions) => {
+            if (err) {
+              return reject(err);
+            }
+
+            if (transactions.length === 0) {
+              return resolve({ message: 'No winners found for this game', winners: [] });
+            }
+
+            const winnerUserIds = transactions.map(t => t.to_user_id);
+            const placeholders = winnerUserIds.map(() => '?').join(',');
+
+            // Get winner names
+            db.all(
+              `SELECT name FROM users WHERE id IN (${placeholders})`,
+              winnerUserIds,
+              (err, winnerUsers) => {
+                if (err) {
+                  return reject(err);
+                }
+
+                const winnerNames = winnerUsers.map(u => u.name).join(', ');
+
+                // Update game with winner names and mark as completed
+                db.run(
+                  "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+                  [winnerNames, gameId],
+                  (err) => {
+                    if (err) {
+                      return reject(err);
+                    }
+
+                    resolve({
+                      message: 'Winners updated successfully',
+                      winners: winnerNames,
+                      winnersCount: winnerUsers.length
+                    });
+                  }
+                );
+              }
+            );
+          }
+        );
+      });
+    });
+  },
 };
 
 const groupService = {
@@ -2248,7 +2437,7 @@ const rewardService = {
 
   async getAllRewards() {
     return new Promise((resolve, reject) => {
-      db.all(`SELECT * FROM rewards ORDER BY created_at DESC`, [], (err, rows) => {
+      db.all(`SELECT * FROM rewards ORDER BY price DESC`, [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });

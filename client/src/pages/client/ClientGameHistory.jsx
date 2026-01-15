@@ -55,7 +55,7 @@ function ClientGameHistory() {
 
   const handleLogout = () => {
     localStorage.removeItem('clientUser');
-    navigate('/players/login');
+    navigate('/login');
   };
 
   if (loading) {
@@ -77,8 +77,8 @@ function ClientGameHistory() {
       </header>
 
       <div className="client-page-header">
-        <Link to="/players/dashboard" className="client-back-btn">← Back</Link>
-        <h2>Game History</h2>
+        <Link to="/players/dashboard" className="client-back-btn">←</Link>
+        <h4>Game History</h4>
       </div>
 
       <main className="client-game-main">
@@ -108,10 +108,14 @@ function ClientGameHistory() {
                     <span className="client-detail-label">Pot Amount:</span>
                     <span className="client-detail-value">₵{parseInt(game.pot_amount || 0)}</span>
                   </div>
-                  {game.winner && (
-                    <div className="client-game-detail-item">
+                  {game.winner_name && (
+                    <div className="client-game-detail-item client-winner-item">
                       <span className="client-detail-label">Winner:</span>
-                      <span className="client-detail-value">{game.winner}</span>
+                      <div className="client-winner-chips">
+                        {game.winner_name.split(',').map((name, index) => (
+                          <span key={index} className="client-winner-chip">{name.trim()}</span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

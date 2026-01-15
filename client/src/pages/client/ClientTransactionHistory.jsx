@@ -73,7 +73,7 @@ function ClientTransactionHistory() {
 
   const handleLogout = () => {
     localStorage.removeItem('clientUser');
-    navigate('/players/login');
+    navigate('/login');
   };
 
   if (loading) {
@@ -95,8 +95,8 @@ function ClientTransactionHistory() {
       </header>
 
       <div className="client-page-header">
-        <Link to="/players/dashboard" className="client-back-btn">← Back</Link>
-        <h2>Transaction History</h2>
+        <Link to="/players/dashboard" className="client-back-btn">←</Link>
+        <h4>Transaction History</h4>
       </div>
 
       <main className="client-transaction-main">

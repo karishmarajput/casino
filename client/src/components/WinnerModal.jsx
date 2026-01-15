@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import './WinnerModal.css';
-import coinSound from '../assets/coin_sound.mp3';
+import coinSound from '../assets/winner-sound.mp3';
 
 function WinnerModal({ 
   isOpen, 

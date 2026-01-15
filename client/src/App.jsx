@@ -14,6 +14,7 @@ import ClientDashboard from './pages/client/ClientDashboard';
 import ClientTransactionHistory from './pages/client/ClientTransactionHistory';
 import ClientGameHistory from './pages/client/ClientGameHistory';
 import ClientRankings from './pages/client/ClientRankings';
+import ClientRewards from './pages/client/ClientRewards';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import PlayerRedirect from './components/PlayerRedirect';
@@ -164,111 +165,119 @@ function AppContent() {
   return (
     <div className="app">
       {!isPlayerRoute && !isLoginRoute && <Navigation />}
-      <main className={isPlayerRoute || isLoginRoute ? "client-main-content" : "main-content"}>
-        <Routes>
-          {/* Root route - redirects to player */}
-          <Route path="/" element={<PlayerRedirect />} />
-          
-          {/* Login route - unified for admin and client */}
-          <Route path="/login" element={<Login />} />
-          
-          {/* Player routes */}
-          <Route path="/players/dashboard" element={<ClientDashboard />} />
-          <Route path="/players/rankings" element={<ClientRankings />} />
-          <Route path="/players/transactions" element={<ClientTransactionHistory />} />
-          <Route path="/players/games" element={<ClientGameHistory />} />
-          
-          {/* Admin routes */}
-          <Route path="/admin" element={<AdminRedirect />} />
-          <Route 
-            path="/admin/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Landing />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Protected admin routes */}
-          <Route 
-            path="/ranking" 
-            element={
-              <ProtectedRoute>
-                <Ranking />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/family-view" 
-            element={
-              <ProtectedRoute>
-                <FamilyView />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/transaction" 
-            element={
-              <ProtectedRoute>
-                <Transaction />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/register" 
-            element={
-              <ProtectedRoute>
-                <UserRegistration />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/games" 
-            element={
-              <ProtectedRoute>
-                <Games />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/groups" 
-            element={
-              <ProtectedRoute>
-                <Groups />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/rewards-view" 
-            element={
-              <ProtectedRoute>
-                <RewardsView />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/rewards" 
-            element={
-              <ProtectedRoute>
-                <Rewards />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/flush-database" 
-            element={
-              <ProtectedRoute>
-                <FlushDatabase />
-              </ProtectedRoute>
-            } 
-          />
-        </Routes>
-      </main>
-      {!isPlayerRoute && !isLoginRoute && (
-        <footer className="app-footer">
-          <p>Developed by Karishma Rajput</p>
-        </footer>
-      )}
+      <div className={isPlayerRoute || isLoginRoute ? "client-wrapper" : "main-wrapper"}>
+        <main className={isPlayerRoute || isLoginRoute ? "client-main-content" : "main-content"}>
+          <Routes>
+            {/* Root route - redirects to player */}
+            <Route path="/" element={<PlayerRedirect />} />
+            
+            {/* Login route - unified for admin and client */}
+            <Route path="/login" element={<Login />} />
+            
+            {/* Player routes */}
+            <Route path="/players/dashboard" element={<ClientDashboard />} />
+            <Route path="/players/rankings" element={<ClientRankings />} />
+            <Route path="/players/transactions" element={<ClientTransactionHistory />} />
+            <Route path="/players/games" element={<ClientGameHistory />} />
+            <Route path="/players/rewards" element={<ClientRewards />} />
+            
+            {/* Admin routes */}
+            <Route path="/admin" element={<AdminRedirect />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Landing />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Protected admin routes */}
+            <Route 
+              path="/ranking" 
+              element={
+                <ProtectedRoute>
+                  <Ranking />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/family-view" 
+              element={
+                <ProtectedRoute>
+                  <FamilyView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/transaction" 
+              element={
+                <ProtectedRoute>
+                  <Transaction />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/register" 
+              element={
+                <ProtectedRoute>
+                  <UserRegistration />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/games" 
+              element={
+                <ProtectedRoute>
+                  <Games />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/groups" 
+              element={
+                <ProtectedRoute>
+                  <Groups />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/rewards-view" 
+              element={
+                <ProtectedRoute>
+                  <RewardsView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/rewards" 
+              element={
+                <ProtectedRoute>
+                  <Rewards />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/flush-database" 
+              element={
+                <ProtectedRoute>
+                  <FlushDatabase />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </main>
+        {!isPlayerRoute && !isLoginRoute && (
+          <footer className="app-footer">
+            <p>Developed by Karishma Rajput</p>
+          </footer>
+        )}
+        {isPlayerRoute && !isLoginRoute && (
+          <footer className="client-footer">
+            <p>Developed by Karishma Rajput</p>
+          </footer>
+        )}
+      </div>
     </div>
   );
 }
