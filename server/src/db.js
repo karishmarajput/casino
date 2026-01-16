@@ -638,5 +638,6 @@ function initializePot() {
 
 module.exports = {
   db,
+  pool,
   initializeDatabase
 };

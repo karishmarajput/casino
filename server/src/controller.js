@@ -574,8 +574,8 @@ const groupController = {
 
   createGroup: async (req, res) => {
     try {
-      const { name, description } = req.body;
-      const group = await groupService.createGroup(name, description);
+      const { name, description, memberIds } = req.body;
+      const group = await groupService.createGroup(name, description, memberIds || []);
       res.json(group);
     } catch (error) {
       if (error.error) {

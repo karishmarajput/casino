@@ -12,6 +12,9 @@ function Groups() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMembers, setGroupMembers] = useState([]);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [createSearchUser, setCreateSearchUser] = useState('');
+  const [showCreateUserDropdown, setShowCreateUserDropdown] = useState(false);
   const [message, setMessage] = useState('');
   const [messageStatus, setMessageStatus] = useState('error');
   const [searchGroup, setSearchGroup] = useState('');
@@ -58,9 +61,15 @@ function Groups() {
     e.preventDefault();
     setMessage('');
     try {
-      await adminAxios.post('/api/groups', formData);
+      const payload = {
+        ...formData,
+        memberIds: selectedMembers.map(m => m.id)
+      };
+      await adminAxios.post('/api/groups', payload);
       setShowCreateModal(false);
       setFormData({ name: '', description: '' });
+      setSelectedMembers([]);
+      setCreateSearchUser('');
       fetchGroups();
       setMessage('Group created successfully');
       setMessageStatus('success');
@@ -164,6 +173,8 @@ function Groups() {
           className="create-group-btn"
           onClick={() => {
             setFormData({ name: '', description: '' });
+            setSelectedMembers([]);
+            setCreateSearchUser('');
             setShowCreateModal(true);
           }}
         >
@@ -214,7 +225,18 @@ function Groups() {
               <p className="group-description">{group.description}</p>
             )}
             <div className="group-info">
-              <span className="member-count">👥 {group.member_count || 0} members</span>
+              {group.member_names && group.member_names.length > 0 ? (
+                <div className="group-members">
+                  <div className="member-count-label">👥 Members ({group.member_count || 0}):</div>
+                  <div className="member-names-list">
+                    {group.member_names.map((name, index) => (
+                      <span key={index} className="member-name-tag">{name}</span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <span className="member-count">👥 {group.member_count || 0} members</span>
+              )}
             </div>
             <button
               className="manage-members-btn"
@@ -257,6 +279,74 @@ function Groups() {
                   rows="3"
                 />
               </div>
+              
+              <div className="form-group">
+                <label>Add Members (Optional)</label>
+                <div className={`form-group ${showCreateUserDropdown ? 'dropdown-active' : ''}`}>
+                  <input
+                    type="text"
+                    placeholder="Search users to add..."
+                    value={createSearchUser}
+                    onChange={(e) => {
+                      setCreateSearchUser(e.target.value);
+                      setShowCreateUserDropdown(true);
+                    }}
+                    onFocus={() => setShowCreateUserDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowCreateUserDropdown(false), 200)}
+                    className="search-input"
+                  />
+                  {showCreateUserDropdown && (
+                    <div className="user-dropdown">
+                      {users
+                        .filter(user => 
+                          !selectedMembers.find(m => m.id === user.id) &&
+                          user.name.toLowerCase().includes(createSearchUser.toLowerCase())
+                        )
+                        .map((user) => (
+                          <div
+                            key={user.id}
+                            className="user-dropdown-item"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              // Add user without closing dropdown or clearing search
+                              if (!selectedMembers.find(m => m.id === user.id)) {
+                                setSelectedMembers([...selectedMembers, user]);
+                                // Keep dropdown open and search text for adding more users
+                              }
+                            }}
+                          >
+                            {user.name} (₵{parseInt(user.balance)})
+                          </div>
+                        ))}
+                      {users.filter(user => 
+                        !selectedMembers.find(m => m.id === user.id) &&
+                        user.name.toLowerCase().includes(createSearchUser.toLowerCase())
+                      ).length === 0 && createSearchUser && (
+                        <div className="user-dropdown-item" style={{ color: 'rgba(255,255,255,0.5)', cursor: 'default' }}>
+                          No users found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {selectedMembers.length > 0 && (
+                  <div className="selected-members">
+                    <div className="selected-members-label">Selected Members ({selectedMembers.length}):</div>
+                    <div className="selected-members-list">
+                      {selectedMembers.map((member) => (
+                        <span
+                          key={member.id}
+                          className="selected-member-tag"
+                          onClick={() => setSelectedMembers(selectedMembers.filter(m => m.id !== member.id))}
+                        >
+                          {member.name} ×
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="cancel-btn">
                   Cancel

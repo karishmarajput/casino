@@ -967,150 +967,126 @@ const gameService = {
     });
   },
 
-  startGame: (entryFee, participants, gameType) => {
-    return new Promise((resolve, reject) => {
-      const entryFeeInt = parseInt(entryFee);
-      if (isNaN(entryFeeInt) || entryFeeInt <= 0) {
-        return reject({ error: 'Invalid entry fee. Must be a positive number.' });
+  startGame: async (entryFee, participants, gameType) => {
+    const { pool } = require('./db');
+    
+    const entryFeeInt = parseInt(entryFee);
+    if (isNaN(entryFeeInt) || entryFeeInt <= 0) {
+      throw { error: 'Invalid entry fee. Must be a positive number.' };
+    }
+    
+    const userIds = participants.map(p => p.userId);
+    const uniqueUserIds = [...new Set(userIds)];
+    
+    // First, check users exist and have sufficient balance (outside transaction)
+    const placeholders = uniqueUserIds.map((_, i) => `$${i + 1}`).join(',');
+    const userCheckResult = await pool.query(
+      `SELECT id, name, balance FROM users WHERE id IN (${placeholders})`,
+      uniqueUserIds
+    );
+    
+    if (userCheckResult.rows.length !== uniqueUserIds.length) {
+      const foundIds = userCheckResult.rows.map(u => u.id);
+      const missingId = uniqueUserIds.find(id => !foundIds.includes(parseInt(id)));
+      throw { error: `User with id ${missingId} not found` };
+    }
+    
+    const insufficientBalance = userCheckResult.rows.find(u => parseFloat(u.balance) < entryFeeInt);
+    if (insufficientBalance) {
+      throw { error: `Insufficient balance for ${insufficientBalance.name}` };
+    }
+    
+    // Now start transaction with a single client
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const totalPot = entryFeeInt * participants.length;
+      
+      // Insert game
+      const gameResult = await client.query(
+        "INSERT INTO games (game_type, entry_fee, pot_amount, status) VALUES ($1, $2, $3, 'active') RETURNING id",
+        [gameType, entryFeeInt, totalPot]
+      );
+      
+      const gameId = gameResult.rows[0].id;
+      
+      if (!gameId) {
+        await client.query('ROLLBACK');
+        client.release();
+        throw { error: 'Failed to get game ID after creation' };
       }
       
-      const userIds = participants.map(p => p.userId);
-      const uniqueUserIds = [...new Set(userIds)];
+      // Update user balances
+      const balancePlaceholders = uniqueUserIds.map((_, i) => `$${i + 1}`).join(', ');
+      await client.query(
+        `UPDATE users SET balance = balance - $${uniqueUserIds.length + 1} WHERE id IN (${balancePlaceholders})`,
+        [...uniqueUserIds, entryFeeInt]
+      );
       
-      db.serialize(() => {
-        let checkedUsers = [];
-        let checkIndex = 0;
-        let hasError = false;
-
-        function checkNextUser() {
-          if (hasError || checkIndex >= uniqueUserIds.length) {
-            if (hasError) {
-              return;
-            }
-            createGame();
-            return;
-          }
-
-          const userId = uniqueUserIds[checkIndex];
-          db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
-            if (err) {
-              hasError = true;
-              return reject(err);
-            }
-
-            if (!user) {
-              hasError = true;
-              return reject({ error: `User with id ${userId} not found` });
-            }
-
-            if (user.balance < entryFeeInt) {
-              hasError = true;
-              return reject({ error: `Insufficient balance for ${user.name}` });
-            }
-
-            checkedUsers.push(user);
-            checkIndex++;
-            checkNextUser();
-          });
-        }
-
-        function createGame() {
-          db.run("BEGIN TRANSACTION", (beginErr) => {
-            if (beginErr) return reject(beginErr);
-
-            const totalPot = entryFeeInt * participants.length;
-
-            db.run(
-              "INSERT INTO games (game_type, entry_fee, pot_amount, status) VALUES (?, ?, ?, 'active')",
-              [gameType, entryFeeInt, totalPot],
-              function(err) {
-                if (err) {
-                  db.run("ROLLBACK", () => {});
-                  return reject(err);
-                }
-
-                const gameId = this.lastID;
-                let processedCount = 0;
-                let hasProcessError = false;
-
-                function processNextParticipant() {
-                  if (hasProcessError || processedCount >= participants.length) {
-                    if (hasProcessError) {
-                      return;
-                    }
-
-                    db.run("COMMIT", (commitErr) => {
-                      if (commitErr) {
-                        db.run("ROLLBACK", () => {});
-                        return reject(commitErr);
-                      }
-
-                      db.get("SELECT * FROM games WHERE id = ?", [gameId], (err, game) => {
-                        if (err) return reject(err);
-                        resolve({ message: 'Game started successfully', game });
-                      });
-                    });
-                    return;
-                  }
-
-                  const participant = participants[processedCount];
-
-                  db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [entryFeeInt, participant.userId], (err) => {
-                    if (err) {
-                      hasProcessError = true;
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
-
-                    db.run("UPDATE pot SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [entryFeeInt], (err) => {
-                      if (err) {
-                        hasProcessError = true;
-                        db.run("ROLLBACK", () => {});
-                        return reject(err);
-                      }
-
-                      db.run(
-                        "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 0, 1, ?, ?)",
-                        [participant.userId, null, entryFeeInt, gameId],
-                        (err) => {
-                          if (err) {
-                            hasProcessError = true;
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
-
-                          const choiceValue = (gameType === 'roulette' || gameType === 'rolltheball' || gameType === 'poker') ? '' : (participant.choice || null);
-                          const roundNumber = 1; // Default to round 1 for new games
-                          
-                          db.run(
-                            "INSERT INTO game_participants (game_id, user_id, choice, round_number) VALUES (?, ?, ?, ?) ON CONFLICT (game_id, user_id, round_number) DO UPDATE SET choice = EXCLUDED.choice",
-                            [gameId, participant.userId, choiceValue, roundNumber],
-                            (err) => {
-                              if (err) {
-                                hasProcessError = true;
-                                db.run("ROLLBACK", () => {});
-                                return reject(err);
-                              }
-
-                              processedCount++;
-                              processNextParticipant();
-                            }
-                          );
-                        }
-                      );
-                    });
-                  });
-                }
-
-                processNextParticipant();
-              }
-            );
-          });
-        }
-
-        checkNextUser();
+      // Update pot
+      await client.query(
+        'UPDATE pot SET balance = balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+        [totalPot]
+      );
+      
+      // Insert transactions
+      const transactionValues = participants.map((_, i) => {
+        const base = i * 6;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+      }).join(', ');
+      
+      const transactionParams = participants.flatMap(p => [
+        p.userId, null, 0, 1, entryFeeInt, gameId
+      ]);
+      
+      await client.query(
+        `INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES ${transactionValues}`,
+        transactionParams
+      );
+      
+      // Insert game participants
+      const choiceValue = (gameType === 'roulette' || gameType === 'rolltheball' || gameType === 'poker') ? '' : null;
+      const roundNumber = 1;
+      
+      const participantValues = participants.map((_, i) => {
+        const base = i * 4;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+      }).join(', ');
+      
+      const participantParams = participants.flatMap(p => {
+        const participantChoice = choiceValue !== null ? choiceValue : (p.choice || null);
+        return [gameId, p.userId, participantChoice, roundNumber];
       });
-    });
+      
+      await client.query(
+        `INSERT INTO game_participants (game_id, user_id, choice, round_number) VALUES ${participantValues} ON CONFLICT (game_id, user_id, round_number) DO UPDATE SET choice = EXCLUDED.choice`,
+        participantParams
+      );
+      
+      await client.query('COMMIT');
+      client.release();
+      
+      const game = {
+        id: gameId,
+        game_type: gameType,
+        entry_fee: entryFeeInt,
+        pot_amount: totalPot,
+        status: 'active',
+        winner: null,
+        spin_result: null,
+        round_number: 1,
+        created_at: new Date().toISOString(),
+        completed_at: null
+      };
+      
+      return { message: 'Game started successfully', game };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      throw error;
+    }
   },
 
   selectWinner: (gameId, winner) => {
@@ -1118,8 +1094,7 @@ const gameService = {
       db.serialize(() => {
         db.run("BEGIN TRANSACTION", (beginErr) => {
           if (beginErr) return reject(beginErr);
-
-          db.get("SELECT * FROM games WHERE id = ? AND status = 'active'", [gameId], (err, game) => {
+          db.get("SELECT * FROM games WHERE id = ?", [gameId], (err, game) => {
             if (err) {
               db.run("ROLLBACK", () => {});
               return reject(err);
@@ -1127,7 +1102,12 @@ const gameService = {
 
             if (!game) {
               db.run("ROLLBACK", () => {});
-              return reject({ error: 'Active game not found' });
+              return reject({ error: 'Game not found' });
+            }
+
+            if (game.status !== 'active') {
+              db.run("ROLLBACK", () => {});
+              return reject({ error: `Game is not active. Current status: ${game.status}` });
             }
 
             db.all(
@@ -1149,7 +1129,6 @@ const gameService = {
                 let hasError = false;
                 const winnerUserIds = winners.map(w => w.user_id);
 
-                // Get winner names
                 const placeholders = winnerUserIds.map(() => '?').join(',');
                 db.all(
                   `SELECT name FROM users WHERE id IN (${placeholders})`,
@@ -1262,7 +1241,6 @@ const gameService = {
               }
 
               if (processedCount >= participantNumbers.length) {
-                // All participants processed, commit transaction
                 db.run("COMMIT", (commitErr) => {
                   if (commitErr) {
                     db.run("ROLLBACK", () => {});
@@ -1407,7 +1385,6 @@ const gameService = {
 
         const spinResultInt = parseInt(game.spin_result);
         
-        // Check all participants across ALL rounds to see what's actually stored
         db.all(
           "SELECT user_id, number, round_number FROM game_participants WHERE game_id = ? ORDER BY round_number, user_id",
           [gameId],
@@ -1418,12 +1395,10 @@ const gameService = {
             }
             console.log(`Debug - ALL participants for gameId=${gameId} (all rounds):`, JSON.stringify(allParticipants, null, 2));
             
-            // Check participants with numbers
             const participantsWithNumbers = allParticipants.filter(p => p.number !== null && p.number !== undefined);
             console.log(`Debug - Participants WITH numbers:`, JSON.stringify(participantsWithNumbers, null, 2));
             console.log(`Debug - Looking for spinResult=${spinResultInt}`);
             
-            // Find winners across all rounds (check all rounds, not just current)
             db.all(
               "SELECT user_id, number, round_number FROM game_participants WHERE game_id = ? AND number IS NOT NULL AND CAST(number AS INTEGER) = ?",
               [gameId, spinResultInt],
@@ -1440,7 +1415,18 @@ const gameService = {
                   console.log(`Participants with number 5:`, JSON.stringify(number5Participants, null, 2));
                 }
                 
-                resolve({ winners, spinResult: game.spin_result });
+                const uniqueWinners = [];
+                const seenUserIds = new Set();
+                winners.forEach(winner => {
+                  if (!seenUserIds.has(winner.user_id)) {
+                    seenUserIds.add(winner.user_id);
+                    uniqueWinners.push(winner);
+                  }
+                });
+                
+                console.log(`Deduplicated winners: ${uniqueWinners.length} unique winners from ${winners.length} total entries`);
+                
+                resolve({ winners: uniqueWinners, spinResult: game.spin_result });
               }
             );
           }
@@ -1519,15 +1505,22 @@ const gameService = {
               return reject({ error: 'Game not found' });
             }
 
-            const amountPerWinner = parseFloat(game.pot_amount) / winnerUserIds.length;
+            const totalWins = winnerUserIds.length;
+            const amountPerWin = parseFloat(game.pot_amount) / totalWins;
+            const winCounts = {};
+            winnerUserIds.forEach(userId => {
+              winCounts[userId] = (winCounts[userId] || 0) + 1;
+            });
+            
+            const uniqueWinnerUserIds = [...new Set(winnerUserIds)];
             let processedCount = 0;
             let hasError = false;
 
-            // Get winner names
-            const placeholders = winnerUserIds.map(() => '?').join(',');
+            // Get winner names (using unique IDs only to avoid duplicate names)
+            const placeholders = uniqueWinnerUserIds.map(() => '?').join(',');
             db.all(
               `SELECT name FROM users WHERE id IN (${placeholders})`,
-              winnerUserIds,
+              uniqueWinnerUserIds,
               (err, winnerUsers) => {
                 if (err) {
                   db.run("ROLLBACK", () => {});
@@ -1536,15 +1529,19 @@ const gameService = {
 
                 const winnerNames = winnerUsers.map(u => u.name).join(', ');
 
-                winnerUserIds.forEach((userId) => {
-                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amountPerWinner], (err) => {
+                // Process each unique winner with their total winnings
+                uniqueWinnerUserIds.forEach((userId) => {
+                  const userWinCount = winCounts[userId];
+                  const userTotalAmount = amountPerWin * userWinCount;
+                  
+                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [userTotalAmount], (err) => {
                 if (err) {
                   hasError = true;
                   db.run("ROLLBACK", () => {});
                   return reject(err);
                 }
 
-                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amountPerWinner, userId], (err) => {
+                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [userTotalAmount, userId], (err) => {
                       if (err) {
                         hasError = true;
                         db.run("ROLLBACK", () => {});
@@ -1553,7 +1550,7 @@ const gameService = {
 
                       db.run(
                         "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                        [null, userId, amountPerWinner, gameId],
+                        [null, userId, userTotalAmount, gameId],
                         (err) => {
                           if (err) {
                             hasError = true;
@@ -1562,7 +1559,7 @@ const gameService = {
                           }
 
                           processedCount++;
-                          if (processedCount === winnerUserIds.length && !hasError) {
+                          if (processedCount === uniqueWinnerUserIds.length && !hasError) {
                             db.run("UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?", [winnerNames, gameId], (err) => {
                               if (err) {
                                 db.run("ROLLBACK", () => {});
@@ -1574,7 +1571,12 @@ const gameService = {
                                   db.run("ROLLBACK", () => {});
                                   return reject(commitErr);
                                 }
-                                resolve({ message: 'Pot distributed successfully', amountPerWinner });
+                                resolve({ 
+                                  message: 'Pot distributed successfully', 
+                                  amountPerWin: amountPerWin,
+                                  totalWins: totalWins,
+                                  uniqueWinners: uniqueWinnerUserIds.length
+                                });
                               });
                             });
                           }
@@ -1713,7 +1715,6 @@ const gameService = {
       db.run("BEGIN", (beginErr) => {
         if (beginErr) return reject(beginErr);
 
-        // Check all users first
         let checkedCount = 0;
         let hasError = false;
         const users = [];
@@ -1722,7 +1723,6 @@ const gameService = {
           if (hasError) return;
           
           if (checkedCount >= participantIds.length) {
-            // All users checked, proceed with game update
             db.get("SELECT round_number, pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
               if (err) {
                 db.run("ROLLBACK", () => {});
@@ -1752,7 +1752,6 @@ const gameService = {
                     return reject(err);
                   }
 
-                  // Process all participants
                   let processedCount = 0;
                   let processError = false;
 
@@ -1760,7 +1759,6 @@ const gameService = {
                     if (processError) return;
 
                     if (processedCount >= participantIds.length) {
-                      // All participants processed, commit
                       db.run("COMMIT", (commitErr) => {
                         if (commitErr) {
                           db.run("ROLLBACK", () => {});
@@ -1844,108 +1842,93 @@ const gameService = {
     });
   },
 
-  selectRollTheBallWinner: (gameId, winnerUserId) => {
-    return new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run("BEGIN TRANSACTION", (beginErr) => {
-          if (beginErr) return reject(beginErr);
-
-          db.get("SELECT pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
-            if (err) {
-              db.run("ROLLBACK", () => {});
-              return reject(err);
-            }
-
-            if (!game) {
-              db.run("ROLLBACK", () => {});
-              return reject({ error: 'Game not found' });
-            }
-
-            if (game.status === 'completed') {
-              db.run("ROLLBACK", () => {});
-              return reject({ error: 'Game is already completed' });
-            }
-
-            db.get(
-              "SELECT user_id FROM game_participants WHERE game_id = ? AND user_id = ?",
-              [gameId, winnerUserId],
-              (err, participant) => {
-                if (err) {
-                  db.run("ROLLBACK", () => {});
-                  return reject(err);
-                }
-
-                if (!participant) {
-                  db.run("ROLLBACK", () => {});
-                  return reject({ error: 'Selected winner is not a participant in this game' });
-                }
-
-                const potAmount = parseFloat(game.pot_amount || 0);
-
-                db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [potAmount], (err) => {
-                  if (err) {
-                    db.run("ROLLBACK", () => {});
-                    return reject(err);
-                  }
-
-                  db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [potAmount, winnerUserId], (err) => {
-                    if (err) {
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
-
-                    db.run(
-                      "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                      [null, winnerUserId, potAmount, gameId],
-                      (err) => {
-                        if (err) {
-                          db.run("ROLLBACK", () => {});
-                          return reject(err);
-                        }
-
-                        // Get winner name
-                        db.get("SELECT name FROM users WHERE id = ?", [winnerUserId], (err, winnerUser) => {
-                          if (err) {
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
-
-                          const winnerName = winnerUser ? winnerUser.name : winnerUserId.toString();
-
-                          db.run(
-                            "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                            [winnerName, gameId],
-                            (err) => {
-                              if (err) {
-                                db.run("ROLLBACK", () => {});
-                                return reject(err);
-                              }
-
-                              db.run("COMMIT", (commitErr) => {
-                                if (commitErr) {
-                                  db.run("ROLLBACK", () => {});
-                                  return reject(commitErr);
-                                }
-
-                                resolve({ 
-                                  message: 'Winner selected and pot distributed successfully',
-                                  winnerUserId: winnerUserId,
-                                  potAmount: potAmount
-                                });
-                              });
-                            }
-                          );
-                        });
-                      }
-                    );
-                  });
-                });
-              }
-            );
-          });
-        });
-      });
-    });
+  selectRollTheBallWinner: async (gameId, winnerUserId) => {
+    const { pool } = require('./db');
+    
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Check if game exists
+      const gameResult = await client.query(
+        'SELECT pot_amount, status FROM games WHERE id = $1',
+        [gameId]
+      );
+      
+      if (gameResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        throw { error: 'Game not found' };
+      }
+      
+      const game = gameResult.rows[0];
+      
+      if (game.status === 'completed') {
+        await client.query('ROLLBACK');
+        client.release();
+        throw { error: 'Game is already completed' };
+      }
+      
+      // Check if user is a participant
+      const participantResult = await client.query(
+        'SELECT user_id FROM game_participants WHERE game_id = $1 AND user_id = $2',
+        [gameId, winnerUserId]
+      );
+      
+      if (participantResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
+        throw { error: 'Selected winner is not a participant in this game' };
+      }
+      
+      const potAmount = parseFloat(game.pot_amount || 0);
+      
+      // Update pot
+      await client.query(
+        'UPDATE pot SET balance = balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+        [potAmount]
+      );
+      
+      // Update user balance
+      await client.query(
+        'UPDATE users SET balance = balance + $1 WHERE id = $2',
+        [potAmount, winnerUserId]
+      );
+      
+      // Insert transaction
+      await client.query(
+        'INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES ($1, $2, 1, 0, $3, $4)',
+        [null, winnerUserId, potAmount, gameId]
+      );
+      
+      // Get winner name
+      const winnerResult = await client.query(
+        'SELECT name FROM users WHERE id = $1',
+        [winnerUserId]
+      );
+      
+      const winnerName = winnerResult.rows[0]?.name || winnerUserId.toString();
+      
+      // Update game status
+      await client.query(
+        "UPDATE games SET status = 'completed', winner = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [winnerName, gameId]
+      );
+      
+      await client.query('COMMIT');
+      client.release();
+      
+      return {
+        message: 'Winner selected and pot distributed successfully',
+        winnerUserId: winnerUserId,
+        potAmount: potAmount
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      throw error;
+    }
   },
 
   distributePokerPot: (gameId, distribution) => {
@@ -2011,8 +1994,6 @@ const gameService = {
                 const validDistributions = distribution.filter(d => (parseFloat(d.amount) || 0) > 0);
                 let processedCount = 0;
                 let hasError = false;
-                
-                // Get winner names (all users who received distribution)
                 const winnerUserIds = validDistributions.map(d => parseInt(d.userId));
                 const winnerPlaceholders = winnerUserIds.map(() => '?').join(',');
                 db.all(
@@ -2099,7 +2080,6 @@ const gameService = {
   updateDealNoDealWinners: (gameId) => {
     return new Promise((resolve, reject) => {
       db.serialize(() => {
-        // Get all unique user IDs who received money from pot for this game
         db.all(
           "SELECT DISTINCT to_user_id FROM transactions WHERE game_id = ? AND from_pot = 1 AND to_user_id IS NOT NULL",
           [gameId],
@@ -2114,19 +2094,12 @@ const gameService = {
 
             const winnerUserIds = transactions.map(t => t.to_user_id);
             const placeholders = winnerUserIds.map(() => '?').join(',');
-
-            // Get winner names
             db.all(
               `SELECT name FROM users WHERE id IN (${placeholders})`,
               winnerUserIds,
               (err, winnerUsers) => {
-                if (err) {
-                  return reject(err);
-                }
-
+                if (err) return reject(err);
                 const winnerNames = winnerUsers.map(u => u.name).join(', ');
-
-                // Update game with winner names and mark as completed
                 db.run(
                   "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
                   [winnerNames, gameId],
@@ -2156,12 +2129,35 @@ const groupService = {
     return new Promise((resolve, reject) => {
       db.all(
         `SELECT g.*, 
-         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
+         (SELECT array_agg(u.name ORDER BY u.name) 
+          FROM group_members gm 
+          INNER JOIN users u ON gm.user_id = u.id 
+          WHERE gm.group_id = g.id) as member_names
          FROM groups g ORDER BY g.created_at DESC`,
         [],
         (err, groups) => {
           if (err) return reject(err);
-          resolve(groups);
+          
+          // Parse member_names from PostgreSQL array format
+          const formattedGroups = groups.map(group => {
+            let memberNames = [];
+            if (group.member_names) {
+              if (Array.isArray(group.member_names)) {
+                memberNames = group.member_names;
+              } else if (typeof group.member_names === 'string') {
+                // Remove curly braces and split by comma
+                const namesStr = group.member_names.replace(/[{}]/g, '');
+                memberNames = namesStr ? namesStr.split(',').map(name => name.trim()).filter(name => name) : [];
+              }
+            }
+            return {
+              ...group,
+              member_names: memberNames
+            };
+          });
+          
+          resolve(formattedGroups);
         }
       );
     });
@@ -2194,25 +2190,65 @@ const groupService = {
     });
   },
 
-  createGroup: (name, description) => {
+  createGroup: (name, description, memberIds = []) => {
     return new Promise((resolve, reject) => {
       if (!name || name.trim() === '') {
         return reject({ error: 'Group name is required' });
       }
 
-      db.run(
-        "INSERT INTO groups (name, description) VALUES (?, ?)",
-        [name.trim(), description ? description.trim() : null],
-        function(err) {
-          if (err) {
-            if (err.message.includes('UNIQUE constraint')) {
-              return reject({ error: 'Group name already exists' });
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION", (beginErr) => {
+          if (beginErr) return reject(beginErr);
+
+          db.run(
+            "INSERT INTO groups (name, description) VALUES (?, ?)",
+            [name.trim(), description ? description.trim() : null],
+            function(err) {
+              if (err) {
+                db.run("ROLLBACK", () => {});
+                if (err.message && err.message.includes('UNIQUE constraint')) {
+                  return reject({ error: 'Group name already exists' });
+                }
+                return reject(err);
+              }
+
+              const groupId = this.lastID;
+
+              if (!memberIds || memberIds.length === 0) {
+                // No members to add, just commit
+                db.run("COMMIT", (commitErr) => {
+                  if (commitErr) {
+                    db.run("ROLLBACK", () => {});
+                    return reject(commitErr);
+                  }
+                  resolve({ id: groupId, name: name.trim(), description: description ? description.trim() : null });
+                });
+                return;
+              }
+
+              // Add members in batch
+              const placeholders = memberIds.map(() => '(?, ?)').join(', ');
+              const memberParams = memberIds.flatMap(userId => [groupId, userId]);
+              const insertQuery = `INSERT INTO group_members (group_id, user_id) VALUES ${placeholders} ON CONFLICT (group_id, user_id) DO NOTHING`;
+
+              db.run(insertQuery, memberParams, (err) => {
+                if (err) {
+                  db.run("ROLLBACK", () => {});
+                  return reject(err);
+                }
+
+                db.run("COMMIT", (commitErr) => {
+                  if (commitErr) {
+                    db.run("ROLLBACK", () => {});
+                    return reject(commitErr);
+                  }
+                  resolve({ id: groupId, name: name.trim(), description: description ? description.trim() : null });
+                });
+              });
             }
-            return reject(err);
-          }
-          resolve({ id: this.lastID, name: name.trim(), description: description ? description.trim() : null });
-        }
-      );
+          );
+        });
+      });
     });
   },
 
@@ -2256,7 +2292,7 @@ const groupService = {
   addMemberToGroup: (groupId, userId) => {
     return new Promise((resolve, reject) => {
       db.run(
-        "INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)",
+        "INSERT INTO group_members (group_id, user_id) VALUES (?, ?) ON CONFLICT (group_id, user_id) DO NOTHING",
         [groupId, userId],
         function(err) {
           if (err) return reject(err);
@@ -2292,28 +2328,23 @@ const groupService = {
           let processedCount = 0;
           let hasError = false;
 
-          userIds.forEach((userId) => {
-            db.run(
-              "INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)",
-              [groupId, userId],
-              (err) => {
-                if (err && !hasError) {
-                  hasError = true;
-                  db.run("ROLLBACK", () => {});
-                  return reject(err);
-                }
-                processedCount++;
-                if (processedCount === userIds.length && !hasError) {
-                  db.run("COMMIT", (commitErr) => {
-                    if (commitErr) {
-                      db.run("ROLLBACK", () => {});
-                      return reject(commitErr);
-                    }
-                    resolve({ message: `${userIds.length} member(s) added to group successfully` });
-                  });
-                }
+          // Batch insert all members at once using PostgreSQL syntax
+          const placeholders = userIds.map(() => '(?, ?)').join(', ');
+          const params = userIds.flatMap(userId => [groupId, userId]);
+          const insertQuery = `INSERT INTO group_members (group_id, user_id) VALUES ${placeholders} ON CONFLICT (group_id, user_id) DO NOTHING`;
+
+          db.run(insertQuery, params, (err) => {
+            if (err) {
+              db.run("ROLLBACK", () => {});
+              return reject(err);
+            }
+            db.run("COMMIT", (commitErr) => {
+              if (commitErr) {
+                db.run("ROLLBACK", () => {});
+                return reject(commitErr);
               }
-            );
+              resolve({ message: `${userIds.length} member(s) added to group successfully` });
+            });
           });
         });
       });
