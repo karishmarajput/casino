@@ -5,43 +5,83 @@ const bodyParser = require('body-parser');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { initializeDatabase } = require('./src/db');
 const { userController, potController, transactionController, familyController, gameController, adminController, groupController, rewardController } = require('./src/controller');
 const { authenticateAdmin } = require('./src/middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const uploadsDir = path.join(__dirname, 'uploads', 'rewards');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'reward-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (extname && mimetype) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files (jpeg, jpg, png, gif, webp) are allowed!'));
+let upload;
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+
+  const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'rewards',
+      allowed_formats: ['jpeg', 'jpg', 'png', 'gif', 'webp'],
+      transformation: [{ width: 800, height: 800, crop: 'limit' }]
     }
+  });
+
+  upload = multer({
+    storage: storage,
+    limits: {
+      fileSize: 5 * 1024 * 1024
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (extname && mimetype) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files (jpeg, jpg, png, gif, webp) are allowed!'));
+      }
+    }
+  });
+} else {
+  console.log('⚠️  Cloudinary not configured. Using local file storage. Set CLOUDINARY_* env vars for production.');
+  const uploadsDir = path.join(__dirname, 'uploads', 'rewards');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
   }
-});
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'reward-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  upload = multer({
+    storage: storage,
+    limits: {
+      fileSize: 5 * 1024 * 1024
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (extname && mimetype) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files (jpeg, jpg, png, gif, webp) are allowed!'));
+      }
+    }
+  });
+}
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -105,7 +145,8 @@ initializeDatabase().then(() => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    const imageUrl = `/uploads/rewards/${req.file.filename}`;
+    // Cloudinary returns req.file.path, local storage returns req.file.filename
+    const imageUrl = req.file.path || `/uploads/rewards/${req.file.filename}`;
     res.json({ imageUrl });
   });
 

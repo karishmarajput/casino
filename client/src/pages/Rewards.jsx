@@ -155,13 +155,15 @@ function Rewards() {
   };
 
   const handleDelete = async (rewardId) => {
-    if (!window.confirm('Are you sure you want to delete this reward?')) {
+    if (!window.confirm('Are you sure you want to delete this reward? This action cannot be undone.')) {
       return;
     }
 
     try {
       await adminAxios.delete(`/api/rewards/${rewardId}`);
-      setMessage('Reward deleted successfully!', 'success');
+      setMessage('Reward deleted successfully!');
+      setMessageStatus('success');
+      setViewingReward(null);
       fetchRewards();
     } catch (error) {
       setMessage(error.response?.data?.error || 'Failed to delete reward');
@@ -190,6 +192,12 @@ function Rewards() {
             </button>
             <button onClick={() => handleEdit()} className="edit-btn-header">
               Edit
+            </button>
+            <button 
+              onClick={() => handleDelete(viewingReward.id)} 
+              className="delete-btn-header"
+            >
+              Delete
             </button>
             <button onClick={handleCreate} className="create-btn">
               + Add Reward

@@ -660,9 +660,12 @@ const rewardController = {
   createReward: async (req, res) => {
     try {
       const rewardData = { ...req.body };
-      // If file was uploaded, use the file path, otherwise use the image_url from body
       if (req.file) {
-        rewardData.image_url = `/uploads/rewards/${req.file.filename}`;
+        if (req.file.path) {
+          rewardData.image_url = req.file.path;
+        } else if (req.file.filename) {
+          rewardData.image_url = `/uploads/rewards/${req.file.filename}`;
+        }
       }
       const reward = await rewardService.createReward(rewardData);
       res.status(201).json(reward);
@@ -695,9 +698,12 @@ const rewardController = {
   updateReward: async (req, res) => {
     try {
       const rewardData = { ...req.body };
-      // If file was uploaded, use the file path, otherwise keep existing image_url
       if (req.file) {
-        rewardData.image_url = `/uploads/rewards/${req.file.filename}`;
+        if (req.file.path) {
+          rewardData.image_url = req.file.path;
+        } else if (req.file.filename) {
+          rewardData.image_url = `/uploads/rewards/${req.file.filename}`;
+        }
       }
       const reward = await rewardService.updateReward(req.params.id, rewardData);
       res.json(reward);
