@@ -186,6 +186,18 @@ const userService = {
     });
   },
 
+  loginByUserId: (userId) => {
+    return new Promise((resolve, reject) => {
+      db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
+        if (err) return reject(err);
+        if (!user) {
+          return reject({ error: 'User not found' });
+        }
+        resolve({ id: user.id, name: user.name, balance: user.balance });
+      });
+    });
+  },
+
   getUserById: (userId) => {
     return new Promise((resolve, reject) => {
       db.get("SELECT id, name, balance, is_captain, captain_id FROM users WHERE id = ?", [userId], (err, user) => {

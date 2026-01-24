@@ -15,7 +15,8 @@ import ClientTransactionHistory from './pages/client/ClientTransactionHistory';
 import ClientGameHistory from './pages/client/ClientGameHistory';
 import ClientRankings from './pages/client/ClientRankings';
 import ClientRewards from './pages/client/ClientRewards';
-import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
+import ClientLogin from './pages/client/ClientLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import PlayerRedirect from './components/PlayerRedirect';
 import AdminRedirect from './components/AdminRedirect';
@@ -36,7 +37,7 @@ function Navigation() {
 
   const handleAdminLogout = () => {
     removeAdminToken();
-    window.location.href = '/login';
+    window.location.href = '/admin';
   };
 
   const handleLogoClick = (e) => {
@@ -148,7 +149,7 @@ function Navigation() {
               to="/login" 
               className="nav-link"
             >
-              Login
+              Player Login
             </Link>
           )}
         </div>
@@ -161,18 +162,22 @@ function AppContent() {
   const location = useLocation();
   const isPlayerRoute = location.pathname.startsWith('/players');
   const isLoginRoute = location.pathname === '/login';
+  const isAdminLoginRoute = location.pathname === '/admin';
 
   return (
     <div className="app">
-      {!isPlayerRoute && !isLoginRoute && <Navigation />}
-      <div className={isPlayerRoute || isLoginRoute ? "client-wrapper" : "main-wrapper"}>
-        <main className={isPlayerRoute || isLoginRoute ? "client-main-content" : "main-content"}>
+      {!isPlayerRoute && !isLoginRoute && !isAdminLoginRoute && <Navigation />}
+      <div className={isPlayerRoute || isLoginRoute || isAdminLoginRoute ? "client-wrapper" : "main-wrapper"}>
+        <main className={isPlayerRoute || isLoginRoute || isAdminLoginRoute ? "client-main-content" : "main-content"}>
           <Routes>
             {/* Root route - redirects to player */}
             <Route path="/" element={<PlayerRedirect />} />
             
-            {/* Login route - unified for admin and client */}
-            <Route path="/login" element={<Login />} />
+            {/* Admin login route */}
+            <Route path="/admin" element={<AdminRedirect />} />
+            
+            {/* Player login route */}
+            <Route path="/login" element={<ClientLogin />} />
             
             {/* Player routes */}
             <Route path="/players/dashboard" element={<ClientDashboard />} />
@@ -267,14 +272,14 @@ function AppContent() {
             />
           </Routes>
         </main>
-        {!isPlayerRoute && !isLoginRoute && (
+        {!isPlayerRoute && !isLoginRoute && !isAdminLoginRoute && (
           <footer className="app-footer">
-            <p>Developed by Karishma Rajput</p>
+            <p>Developed by Karan & Karishma</p>
           </footer>
         )}
-        {isPlayerRoute && !isLoginRoute && (
+        {(isPlayerRoute || isLoginRoute || isAdminLoginRoute) && (
           <footer className="client-footer">
-            <p>Developed by Karishma Rajput</p>
+            <p>Developed by Karan & Karishma</p>
           </footer>
         )}
       </div>

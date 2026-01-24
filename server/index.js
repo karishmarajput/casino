@@ -93,6 +93,8 @@ initializeDatabase().then(() => {
   app.get('/api/pot', potController.getPotBalance);
   app.get('/api/families/ranking', familyController.getFamilyRanking);
   app.post('/api/client/login', userController.login);
+  app.post('/api/client/login-by-id', userController.loginByUserId);
+  app.get('/api/client/users', userController.getUsers);
   app.get('/api/client/users/:userId', userController.getUserById);
   app.get('/api/client/users/:userId/transactions', userController.getUserTransactions);
   app.get('/api/client/users/:userId/games', userController.getUserGames);

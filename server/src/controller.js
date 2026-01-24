@@ -127,6 +127,23 @@ const userController = {
     }
   },
 
+  loginByUserId: async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+      const user = await userService.loginByUserId(userId);
+      res.json(user);
+    } catch (error) {
+      if (error.error) {
+        res.status(401).json(error);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  },
+
   getUserById: async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
