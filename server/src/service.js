@@ -1101,134 +1101,84 @@ const gameService = {
     }
   },
 
-  selectWinner: (gameId, winner) => {
-    return new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run("BEGIN TRANSACTION", (beginErr) => {
-          if (beginErr) return reject(beginErr);
-          db.get("SELECT * FROM games WHERE id = ?", [gameId], (err, game) => {
-            if (err) {
-              db.run("ROLLBACK", () => {});
-              return reject(err);
-            }
+  selectWinner: async (gameId, winner) => {
+    const { pool } = require('./db');
+    const client = await pool.connect();
 
-            if (!game) {
-              db.run("ROLLBACK", () => {});
-              return reject({ error: 'Game not found' });
-            }
+    try {
+      await client.query('BEGIN');
 
-            if (game.status !== 'active') {
-              db.run("ROLLBACK", () => {});
-              return reject({ error: `Game is not active. Current status: ${game.status}` });
-            }
+      // Lock the game row to prevent double-processing
+      const gameRes = await client.query(
+        "SELECT id, pot_amount, status FROM games WHERE id = $1 FOR UPDATE",
+        [gameId]
+      );
 
-            db.all(
-              "SELECT user_id FROM game_participants WHERE game_id = ? AND choice = ?",
-              [gameId, winner],
-              (err, winners) => {
-                if (err) {
-                  db.run("ROLLBACK", () => {});
-                  return reject(err);
-                }
+      const game = gameRes.rows[0];
+      if (!game) {
+        await client.query('ROLLBACK');
+        throw { error: 'Game not found' };
+      }
+      if (game.status !== 'active') {
+        await client.query('ROLLBACK');
+        throw { error: `Game is not active. Current status: ${game.status}` };
+      }
 
-                if (winners.length === 0) {
-                  db.run("ROLLBACK", () => {});
-                  return reject({ error: 'No participants selected this option' });
-                }
+      // Single query to fetch winners + names (no N+1)
+      const winnersRes = await client.query(
+        `SELECT u.id AS user_id, u.name
+         FROM game_participants gp
+         JOIN users u ON u.id = gp.user_id
+         WHERE gp.game_id = $1 AND gp.choice = $2`,
+        [gameId, winner]
+      );
 
-                const amountPerWinner = Math.round(parseFloat(game.pot_amount) / winners.length * 100) / 100;
-                let processedCount = 0;
-                let hasError = false;
-                const winnerUserIds = winners.map(w => w.user_id);
+      if (!winnersRes.rows || winnersRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw { error: 'No participants selected this option' };
+      }
 
-                const placeholders = winnerUserIds.map(() => '?').join(',');
-                db.all(
-                  `SELECT name FROM users WHERE id IN (${placeholders})`,
-                  winnerUserIds,
-                  (err, winnerUsers) => {
-                    if (err) {
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
+      const winnersCount = winnersRes.rows.length;
+      const winnerUserIds = winnersRes.rows.map(r => r.user_id);
+      const winnerNames = winnersRes.rows.map(r => r.name).join(', ');
 
-                    const winnerNames = winnerUsers.map(u => u.name).join(', ');
+      const potAmount = Number(game.pot_amount) || 0;
+      const amountPerWinner = potAmount / winnersCount;
 
-                    function processNextWinner() {
-                      if (hasError) {
-                        return;
-                      }
+      // Set-based updates/inserts (fast even with many winners)
+      await client.query(
+        "UPDATE pot SET balance = balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1",
+        [potAmount]
+      );
 
-                      if (processedCount >= winners.length) {
-                        db.run(
-                          "UPDATE games SET status = 'completed', winner = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                          [winnerNames, gameId],
-                          (err) => {
-                            if (err) {
-                              db.run("ROLLBACK", () => {});
-                              return reject(err);
-                            }
+      await client.query(
+        "UPDATE users SET balance = balance + $1 WHERE id = ANY($2::int[])",
+        [amountPerWinner, winnerUserIds]
+      );
 
-                            db.run("COMMIT", (commitErr) => {
-                              if (commitErr) {
-                                db.run("ROLLBACK", () => {});
-                                return reject(commitErr);
-                              }
+      await client.query(
+        `INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id)
+         SELECT NULL, unnest($1::int[]), 1, 0, $2, $3`,
+        [winnerUserIds, amountPerWinner, gameId]
+      );
 
-                              resolve({ 
-                                message: `Pot distributed successfully to ${winners.length} winner(s)`,
-                                winnersCount: winners.length,
-                                amountPerWinner: amountPerWinner
-                              });
-                            });
-                          }
-                        );
-                        return;
-                      }
+      await client.query(
+        "UPDATE games SET status = 'completed', winner = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [winnerNames, gameId]
+      );
 
-                  const winnerData = winners[processedCount];
-                  const amount = Math.round(amountPerWinner * 100) / 100;
-
-                  db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [amount], (err) => {
-                    if (err) {
-                      hasError = true;
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
-
-                    db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [amount, winnerData.user_id], (err) => {
-                      if (err) {
-                        hasError = true;
-                        db.run("ROLLBACK", () => {});
-                        return reject(err);
-                      }
-
-                      db.run(
-                        "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                        [null, winnerData.user_id, amount, gameId],
-                        (err) => {
-                          if (err) {
-                            hasError = true;
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
-
-                          processedCount++;
-                          processNextWinner();
-                        }
-                      );
-                    });
-                  });
-                    }
-
-                    processNextWinner();
-                  }
-                );
-              }
-            );
-          });
-        });
-      });
-    });
+      await client.query('COMMIT');
+      return {
+        message: `Pot distributed successfully to ${winnersCount} winner(s)`,
+        winnersCount,
+        amountPerWinner
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   saveRouletteNumbers: (gameId, participantNumbers) => {

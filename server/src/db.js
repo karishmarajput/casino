@@ -612,6 +612,13 @@ function runMigrations() {
 
         return Promise.all(promises);
       })
+      .then(() => {
+        // Performance: speed up winner lookups like:
+        // SELECT ... FROM game_participants WHERE game_id = $1 AND choice = $2
+        return pool.query(
+          "CREATE INDEX IF NOT EXISTS idx_game_participants_game_choice ON game_participants (game_id, choice)"
+        ).catch(err => console.error("Error creating idx_game_participants_game_choice:", err));
+      })
       .then(() => resolve())
       .catch((err) => {
         console.error("Migration error:", err);
