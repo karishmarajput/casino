@@ -62,6 +62,31 @@ function Roulette({ onBack }) {
   useEffect(() => {
   }, [step, currentGame, spinResult, winners]);
 
+  // When entering nextRound step, ensure participant numbers are loaded
+  useEffect(() => {
+    if (step === 'nextRound' && currentGame) {
+      const fetchParticipantNumbers = async () => {
+        try {
+          const participantsResponse = await adminAxios.get(`/api/games/${currentGame.id}/participants`);
+          const currentRound = currentGame.round_number || 1;
+          // Get participants from the current round (the round we just finished)
+          const currentRoundParticipants = participantsResponse.data.filter(p => (p.round_number || 1) === currentRound);
+          const numbers = { ...participantNumbers };
+          // Populate numbers for all participants from the current round
+          currentRoundParticipants.forEach(p => {
+            if (p.number !== null && p.number !== undefined) {
+              numbers[p.user_id] = p.number;
+            }
+          });
+          setParticipantNumbers(numbers);
+        } catch (error) {
+          console.error('Error fetching participants for next round:', error);
+        }
+      };
+      fetchParticipantNumbers();
+    }
+  }, [step, currentGame]);
+
   const fetchUsers = async () => {
     try {
       const response = await adminAxios.get('/api/users');
@@ -489,6 +514,7 @@ function Roulette({ onBack }) {
         setContinueParticipants([]);
         setPotAlreadyDistributed(false);
         fetchUsers();
+        setLoading(false);
       }, 2000);
     } catch (error) {
       showMessage(error.response?.data?.error || 'Failed to distribute pot', 'error');
@@ -967,7 +993,28 @@ function Roulette({ onBack }) {
                       {loading ? 'Finding...' : 'Declare Nearest Winner'}
                     </button>
                     <button
-                      onClick={() => setStep('nextRound')}
+                      onClick={async () => {
+                        // Fetch all participants from current round to populate their numbers
+                        if (currentGame) {
+                          try {
+                            const participantsResponse = await adminAxios.get(`/api/games/${currentGame.id}/participants`);
+                            const currentRound = currentGame.round_number || 1;
+                            // Get participants from the current round (the round we just finished)
+                            const currentRoundParticipants = participantsResponse.data.filter(p => (p.round_number || 1) === currentRound);
+                            const numbers = { ...participantNumbers };
+                            // Populate numbers for all participants from the current round
+                            currentRoundParticipants.forEach(p => {
+                              if (p.number !== null && p.number !== undefined) {
+                                numbers[p.user_id] = p.number;
+                              }
+                            });
+                            setParticipantNumbers(numbers);
+                          } catch (error) {
+                            console.error('Error fetching participants:', error);
+                          }
+                        }
+                        setStep('nextRound');
+                      }}
                       className="submit-btn secondary-btn"
                     >
                       Play One More Round
@@ -1032,6 +1079,26 @@ function Roulette({ onBack }) {
                 />
                 {showDropdown && filteredContinue.length > 0 && (
                   <div className="dropdown">
+                    <div
+                      className="dropdown-item select-all-item"
+                      onClick={() => {
+                        const allUserIds = filteredContinue.map(u => u.id.toString());
+                        const newContinueParticipants = [...new Set([...continueParticipants, ...allUserIds])];
+                        setContinueParticipants(newContinueParticipants);
+                        // Populate numbers for all selected participants
+                        const newNumbers = { ...participantNumbers };
+                        filteredContinue.forEach(user => {
+                          const userIdStr = user.id.toString();
+                          if (participantNumbers[userIdStr] !== undefined && participantNumbers[userIdStr] !== null) {
+                            newNumbers[userIdStr] = participantNumbers[userIdStr];
+                          }
+                        });
+                        setParticipantNumbers(newNumbers);
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      <span className="select-all-text">✓ Select All</span>
+                    </div>
                     {filteredContinue.map((user) => (
                       <div
                         key={user.id}
@@ -1045,6 +1112,13 @@ function Roulette({ onBack }) {
                             setParticipantNumbers(newNumbers);
                           } else {
                             setContinueParticipants([...continueParticipants, userIdStr]);
+                            // Populate number from previous round if available
+                            if (participantNumbers[userIdStr] !== undefined && participantNumbers[userIdStr] !== null) {
+                              // Number already exists, keep it
+                            } else {
+                              // Try to get from previous round data if available
+                              // This will be handled by the fetch we do when entering nextRound step
+                            }
                           }
                         }}
                         onMouseDown={(e) => e.preventDefault()}
@@ -1061,6 +1135,7 @@ function Roulette({ onBack }) {
                               setParticipantNumbers(newNumbers);
                             } else {
                               setContinueParticipants([...continueParticipants, userIdStr]);
+                              // Number will be populated from participantNumbers if it exists
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}

@@ -1308,6 +1308,24 @@
   background: rgba(212, 175, 55, 0.2);
 }
 
+.roulette-card .select-all-item {
+  background: rgba(212, 175, 55, 0.15);
+  font-weight: 700;
+  border-bottom: 2px solid rgba(212, 175, 55, 0.5);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.roulette-card .select-all-item:hover {
+  background: rgba(212, 175, 55, 0.3);
+}
+
+.roulette-card .select-all-text {
+  color: #d4af37;
+  font-weight: 700;
+}
+
 .roulette-card .checkbox-input {
   width: 18px;
   height: 18px;

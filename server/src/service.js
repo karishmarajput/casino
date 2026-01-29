@@ -1555,253 +1555,170 @@ const gameService = {
     });
   },
 
-  startNextRound: (gameId, additionalBet, participantIds) => {
-    return new Promise((resolve, reject) => {
+  startNextRound: async (gameId, additionalBet, participantIds) => {
+    const { pool } = require('./db');
+    const additionalBetInt = parseInt(additionalBet);
+
+    if (isNaN(additionalBetInt) || additionalBetInt <= 0) {
+      throw { error: 'Valid additional bet amount is required' };
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Auto-winner path when only one participant continues
       if (participantIds.length === 1) {
-        const winnerUserId = participantIds[0];
-        
-        db.serialize(() => {
-          db.run("BEGIN TRANSACTION", (beginErr) => {
-            if (beginErr) return reject(beginErr);
+        const winnerUserId = parseInt(participantIds[0]);
 
-            db.get("SELECT id, name, balance FROM users WHERE id = ?", [winnerUserId], (err, user) => {
-              if (err) {
-                db.run("ROLLBACK", () => {});
-                return reject(err);
-              }
-
-              if (!user) {
-                db.run("ROLLBACK", () => {});
-                return reject({ error: `User with id ${winnerUserId} not found` });
-              }
-
-              if (user.balance < additionalBet) {
-                db.run("ROLLBACK", () => {});
-                return reject({ error: `Insufficient balance for ${user.name}` });
-              }
-
-              db.get("SELECT pot_amount FROM games WHERE id = ?", [gameId], (err, game) => {
-                if (err) {
-                  db.run("ROLLBACK", () => {});
-                  return reject(err);
-                }
-
-                if (!game) {
-                  db.run("ROLLBACK", () => {});
-                  return reject({ error: 'Game not found' });
-                }
-
-                const totalPotAmount = Math.round(parseInt(game.pot_amount || 0)) + parseInt(additionalBet);
-
-                db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [additionalBet, winnerUserId], (err) => {
-                  if (err) {
-                    db.run("ROLLBACK", () => {});
-                    return reject(err);
-                  }
-
-                  db.run("UPDATE pot SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [additionalBet], (err) => {
-                    if (err) {
-                      db.run("ROLLBACK", () => {});
-                      return reject(err);
-                    }
-
-                    db.run(
-                      "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 0, 1, ?, ?)",
-                      [winnerUserId, null, additionalBet, gameId],
-                      (err) => {
-                        if (err) {
-                          db.run("ROLLBACK", () => {});
-                          return reject(err);
-                        }
-
-                        db.run("UPDATE pot SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [totalPotAmount], (err) => {
-                          if (err) {
-                            db.run("ROLLBACK", () => {});
-                            return reject(err);
-                          }
-
-                          db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [totalPotAmount, winnerUserId], (err) => {
-                            if (err) {
-                              db.run("ROLLBACK", () => {});
-                              return reject(err);
-                            }
-
-                            db.run(
-                              "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 1, 0, ?, ?)",
-                              [null, winnerUserId, totalPotAmount, gameId],
-                              (err) => {
-                                if (err) {
-                                  db.run("ROLLBACK", () => {});
-                                  return reject(err);
-                                }
-
-                                db.run(
-                                  "UPDATE games SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
-                                  [gameId],
-                                  (err) => {
-                                    if (err) {
-                                      db.run("ROLLBACK", () => {});
-                                      return reject(err);
-                                    }
-
-                                    db.run("COMMIT", (commitErr) => {
-                                      if (commitErr) {
-                                        db.run("ROLLBACK", () => {});
-                                        return reject(commitErr);
-                                      }
-
-                                      resolve({ 
-                                        autoWinner: true,
-                                        winnerUserId: winnerUserId,
-                                        potAmount: totalPotAmount,
-                                        message: 'Only one participant selected - automatically declared as winner!'
-                                      });
-                                    });
-                                  }
-                                );
-                              }
-                            );
-                          });
-                        });
-                      }
-                    );
-                  });
-                });
-              });
-            });
-          });
-        });
-        return;
-      }
-
-      db.run("BEGIN", (beginErr) => {
-        if (beginErr) return reject(beginErr);
-
-        let checkedCount = 0;
-        let hasError = false;
-        const users = [];
-
-        function checkNextUser() {
-          if (hasError) return;
-          
-          if (checkedCount >= participantIds.length) {
-            db.get("SELECT round_number, pot_amount, status FROM games WHERE id = ?", [gameId], (err, game) => {
-              if (err) {
-                db.run("ROLLBACK", () => {});
-                return reject(err);
-              }
-
-              if (!game) {
-                db.run("ROLLBACK", () => {});
-                return reject({ error: 'Game not found' });
-              }
-
-              if (game.status === 'completed') {
-                db.run("ROLLBACK", () => {});
-                return reject({ error: 'Cannot start next round for a completed game' });
-              }
-
-              const newRoundNumber = (game.round_number || 1) + 1;
-              const totalAdditionalBet = parseInt(additionalBet) * participantIds.length;
-              const newPotAmount = Math.round(parseInt(game.pot_amount || 0)) + totalAdditionalBet;
-
-              db.run(
-                "UPDATE games SET round_number = ?, pot_amount = ?, spin_result = NULL WHERE id = ?",
-                [newRoundNumber, newPotAmount, gameId],
-                (err) => {
-                  if (err) {
-                    db.run("ROLLBACK", () => {});
-                    return reject(err);
-                  }
-
-                  let processedCount = 0;
-                  let processError = false;
-
-                  function processNextParticipant() {
-                    if (processError) return;
-
-                    if (processedCount >= participantIds.length) {
-                      db.run("COMMIT", (commitErr) => {
-                        if (commitErr) {
-                          db.run("ROLLBACK", () => {});
-                          return reject(commitErr);
-                        }
-                        resolve({ message: 'Next round started successfully', roundNumber: newRoundNumber, newPotAmount });
-                      });
-                      return;
-                    }
-
-                    const userId = participantIds[processedCount];
-                    processedCount++;
-
-                    db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [additionalBet, userId], (err) => {
-                      if (err) {
-                        processError = true;
-                        db.run("ROLLBACK", () => {});
-                        return reject(err);
-                      }
-
-                      db.run("UPDATE pot SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [additionalBet], (err) => {
-                        if (err) {
-                          processError = true;
-                          db.run("ROLLBACK", () => {});
-                          return reject(err);
-                        }
-
-                        db.run(
-                          "INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES (?, ?, 0, 1, ?, ?)",
-                          [userId, null, additionalBet, gameId],
-                          (err) => {
-                            if (err) {
-                              processError = true;
-                              db.run("ROLLBACK", () => {});
-                              return reject(err);
-                            }
-
-                            processNextParticipant();
-                          }
-                        );
-                      });
-                    });
-                  }
-
-                  processNextParticipant();
-                }
-              );
-            });
-            return;
-          }
-
-          const userId = participantIds[checkedCount];
-          checkedCount++;
-
-          db.get("SELECT id, name, balance FROM users WHERE id = ?", [userId], (err, user) => {
-            if (err) {
-              hasError = true;
-              db.run("ROLLBACK", () => {});
-              return reject(err);
-            }
-
-            if (!user) {
-              hasError = true;
-              db.run("ROLLBACK", () => {});
-              return reject({ error: `User with id ${userId} not found` });
-            }
-
-            if (parseFloat(user.balance) < parseFloat(additionalBet)) {
-              hasError = true;
-              db.run("ROLLBACK", () => {});
-              return reject({ error: `Insufficient balance for ${user.name}` });
-            }
-
-            users.push(user);
-            checkNextUser();
-          });
+        const userRes = await client.query(
+          'SELECT id, name, balance FROM users WHERE id = $1 FOR UPDATE',
+          [winnerUserId]
+        );
+        const user = userRes.rows[0];
+        if (!user) {
+          throw { error: `User with id ${winnerUserId} not found` };
+        }
+        if (parseFloat(user.balance) < additionalBetInt) {
+          throw { error: `Insufficient balance for ${user.name}` };
         }
 
-        checkNextUser();
-      });
-    });
+        const gameRes = await client.query(
+          'SELECT pot_amount, status FROM games WHERE id = $1 FOR UPDATE',
+          [gameId]
+        );
+        const game = gameRes.rows[0];
+        if (!game) {
+          throw { error: 'Game not found' };
+        }
+        if (game.status === 'completed') {
+          throw { error: 'Cannot start next round for a completed game' };
+        }
+
+        const currentPot = Math.round(parseFloat(game.pot_amount || 0));
+        const totalPotAmount = currentPot + additionalBetInt;
+
+        // Take additional bet from user → pot
+        await client.query(
+          'UPDATE users SET balance = balance - $1 WHERE id = $2',
+          [additionalBetInt, winnerUserId]
+        );
+        await client.query(
+          'UPDATE pot SET balance = balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+          [additionalBetInt]
+        );
+        await client.query(
+          'INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES ($1, $2, 0, 1, $3, $4)',
+          [winnerUserId, null, additionalBetInt, gameId]
+        );
+
+        // Distribute full pot back to user
+        await client.query(
+          'UPDATE pot SET balance = balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+          [totalPotAmount]
+        );
+        await client.query(
+          'UPDATE users SET balance = balance + $1 WHERE id = $2',
+          [totalPotAmount, winnerUserId]
+        );
+        await client.query(
+          'INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id) VALUES ($1, $2, 1, 0, $3, $4)',
+          [null, winnerUserId, totalPotAmount, gameId]
+        );
+
+        // Update game as completed with winner name
+        await client.query(
+          "UPDATE games SET status = 'completed', winner = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2",
+          [user.name, gameId]
+        );
+
+        await client.query('COMMIT');
+        return {
+          autoWinner: true,
+          winnerUserId,
+          potAmount: totalPotAmount,
+          message: 'Only one participant selected - automatically declared as winner!'
+        };
+      }
+
+      // Multi-participant next round
+      const participantIdsInt = participantIds.map(id => parseInt(id));
+
+      // Lock and validate all participants
+      const usersRes = await client.query(
+        'SELECT id, name, balance FROM users WHERE id = ANY($1::int[]) FOR UPDATE',
+        [participantIdsInt]
+      );
+      if (usersRes.rows.length !== participantIdsInt.length) {
+        const foundIds = usersRes.rows.map(u => u.id);
+        const missingId = participantIdsInt.find(id => !foundIds.includes(id));
+        throw { error: `User with id ${missingId} not found` };
+      }
+
+      const insufficientUser = usersRes.rows.find(
+        u => parseFloat(u.balance) < additionalBetInt
+      );
+      if (insufficientUser) {
+        throw { error: `Insufficient balance for ${insufficientUser.name}` };
+      }
+
+      // Lock game row
+      const gameRes = await client.query(
+        'SELECT round_number, pot_amount, status FROM games WHERE id = $1 FOR UPDATE',
+        [gameId]
+      );
+      const game = gameRes.rows[0];
+      if (!game) {
+        throw { error: 'Game not found' };
+      }
+      if (game.status === 'completed') {
+        throw { error: 'Cannot start next round for a completed game' };
+      }
+
+      const currentRound = game.round_number || 1;
+      const newRoundNumber = currentRound + 1;
+      const totalAdditionalBet = additionalBetInt * participantIdsInt.length;
+      const newPotAmount =
+        Math.round(parseFloat(game.pot_amount || 0)) + totalAdditionalBet;
+
+      // Update game round and pot_amount
+      await client.query(
+        'UPDATE games SET round_number = $1, pot_amount = $2, spin_result = NULL WHERE id = $3',
+        [newRoundNumber, newPotAmount, gameId]
+      );
+
+      // Deduct additional bet from all participants
+      await client.query(
+        'UPDATE users SET balance = balance - $1 WHERE id = ANY($2::int[])',
+        [additionalBetInt, participantIdsInt]
+      );
+
+      // Increase pot once
+      await client.query(
+        'UPDATE pot SET balance = balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+        [totalAdditionalBet]
+      );
+
+      // Insert one transaction per participant (user -> pot)
+      await client.query(
+        `INSERT INTO transactions (from_user_id, to_user_id, from_pot, to_pot, amount, game_id)
+         SELECT unnest($1::int[]), NULL::int, 0, 1, $2, $3`,
+        [participantIdsInt, additionalBetInt, gameId]
+      );
+
+      await client.query('COMMIT');
+      return {
+        message: 'Next round started successfully',
+        roundNumber: newRoundNumber,
+        newPotAmount
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   selectRollTheBallWinner: async (gameId, winnerUserId) => {
