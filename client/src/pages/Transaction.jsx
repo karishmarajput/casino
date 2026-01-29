@@ -17,6 +17,7 @@ function Transaction() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageStatus, setMessageStatus] = useState('error');
+  const [fromPotSelected, setFromPotSelected] = useState(false);
 
   const showMessage = (msg, status = 'error') => {
     setMessage(msg);
@@ -47,26 +48,23 @@ function Transaction() {
     }
   };
 
-  const filteredUsersFrom = searchFrom.toLowerCase() === 'pot' 
-    ? [{ id: 'pot', name: 'Pot', balance: 0 }]
-    : searchFrom === ''
+  const filteredUsersFrom = searchFrom === ''
     ? users
     : users.filter(user =>
         user.name.toLowerCase().includes(searchFrom.toLowerCase())
       );
 
-  const filteredUsersTo = searchTo.toLowerCase() === 'pot'
-    ? [{ id: 'pot', name: 'Pot', balance: 0 }]
-    : searchTo === ''
-    ? users
-    : users.filter(user =>
-        user.name.toLowerCase().includes(searchTo.toLowerCase())
-      );
+  const filteredUsersTo = [
+    { id: 'pot', name: 'Pot', balance: 0 },
+    ...(searchTo === ''
+      ? users
+      : users.filter(user =>
+          user.name.toLowerCase().includes(searchTo.toLowerCase())
+        ))
+  ];
 
   const allFilteredUsersFromSelected = filteredUsersFrom.length > 0 && 
-    filteredUsersFrom.every(user => 
-      user.id === 'pot' ? false : fromUserIds.includes(user.id.toString())
-    );
+    filteredUsersFrom.every(user => fromUserIds.includes(user.id.toString()));
 
   const handleSelectAllFrom = () => {
     if (allFilteredUsersFromSelected) {
@@ -77,17 +75,14 @@ function Transaction() {
     } else {
       // Select all filtered users (excluding pot)
       const filteredUserIds = filteredUsersFrom
-        .filter(user => user.id !== 'pot')
         .map(user => user.id.toString());
       setFromUserIds([...new Set([...fromUserIds, ...filteredUserIds])]);
     }
   };
 
   const handleFromUserToggle = (userId) => {
-    if (userId === 'pot') {
-      // Pot is not selectable in multi-select mode
-      return;
-    }
+    // If switching to user selection, ensure Pot is not selected
+    setFromPotSelected(false);
     const userIdStr = userId.toString();
     if (fromUserIds.includes(userIdStr)) {
       setFromUserIds(fromUserIds.filter(id => id !== userIdStr));
@@ -103,8 +98,9 @@ function Transaction() {
     setLoading(true);
 
     const toPot = searchTo.toLowerCase() === 'pot';
+    const isFromPot = fromPotSelected;
 
-    if (fromUserIds.length === 0 || (!toUserId && !toPot) || !amount) {
+    if ((!isFromPot && fromUserIds.length === 0) || (!toUserId && !toPot) || !amount) {
       showMessage('Please fill in all fields and select at least one sender', 'error');
       setLoading(false);
       return;
@@ -118,16 +114,34 @@ function Transaction() {
     }
 
     try {
-      const transactions = fromUserIds.map(fromUserId => ({
-        fromUserId: parseInt(fromUserId),
-        toUserId: toPot ? null : parseInt(toUserId),
-        fromPot: false,
-        toPot: toPot,
-        amount: amountInt,
-      }));
+      if (isFromPot) {
+        if (toPot) {
+          showMessage('Cannot transfer from Pot to Pot', 'error');
+          setLoading(false);
+          return;
+        }
 
-      await adminAxios.post('/api/transactions/batch', { transactions });
-      showMessage(`Transaction completed successfully! ${fromUserIds.length} user(s) sent ₵${amountInt} each.`, 'success');
+        // Single transaction: Pot -> User
+        await adminAxios.post('/api/transactions', {
+          fromUserId: null,
+          toUserId: parseInt(toUserId),
+          fromPot: true,
+          toPot: false,
+          amount: amountInt,
+        });
+        showMessage(`Transaction completed successfully! Pot sent ₵${amountInt}.`, 'success');
+      } else {
+        const transactions = fromUserIds.map(fromUserId => ({
+          fromUserId: parseInt(fromUserId),
+          toUserId: toPot ? null : parseInt(toUserId),
+          fromPot: false,
+          toPot: toPot,
+          amount: amountInt,
+        }));
+
+        await adminAxios.post('/api/transactions/batch', { transactions });
+        showMessage(`Transaction completed successfully! ${fromUserIds.length} user(s) sent ₵${amountInt} each.`, 'success');
+      }
       setShowSuccessAnimation(true);
       
       // Play coin falling sound using Web Audio API
@@ -262,9 +276,38 @@ function Transaction() {
                     }}
                     className="search-input"
                   />
-                  {showFromDropdown && filteredUsersFrom.length > 0 && (
+                  {showFromDropdown && (filteredUsersFrom.length > 0 || true) && (
                     <div className="dropdown">
-                      {filteredUsersFrom.some(user => user.id !== 'pot') && (
+                      {/* Pot option */}
+                      <div
+                        className={`dropdown-item ${fromPotSelected ? 'selected' : ''}`}
+                        onClick={() => {
+                          const next = !fromPotSelected;
+                          setFromPotSelected(next);
+                          if (next) {
+                            // When Pot is selected, clear individual senders
+                            setFromUserIds([]);
+                          }
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={fromPotSelected}
+                          onChange={() => {
+                            const next = !fromPotSelected;
+                            setFromPotSelected(next);
+                            if (next) {
+                              setFromUserIds([]);
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="checkbox-input"
+                        />
+                        <span>Pot</span>
+                      </div>
+
+                      {filteredUsersFrom.length > 0 && (
                         <div
                           className="dropdown-item select-all-item"
                           onClick={handleSelectAllFrom}
@@ -305,10 +348,20 @@ function Transaction() {
                     </div>
                   )}
                 </div>
-                {fromUserIds.length > 0 && (
+                {(fromUserIds.length > 0 || fromPotSelected) && (
                   <div className="selected-users">
-                    <div className="selected-users-label">Selected ({fromUserIds.length}):</div>
+                    <div className="selected-users-label">
+                      Selected ({fromUserIds.length + (fromPotSelected ? 1 : 0)}):
+                    </div>
                     <div className="selected-users-list">
+                      {fromPotSelected && (
+                        <span
+                          className="selected-user-tag"
+                          onClick={() => setFromPotSelected(false)}
+                        >
+                          Pot
+                        </span>
+                      )}
                       {fromUserIds.map((userId) => {
                         const user = users.find(u => u.id.toString() === userId);
                         return user ? (
