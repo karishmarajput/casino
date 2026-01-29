@@ -2368,87 +2368,42 @@ const adminService = {
   flushDatabase: () => {
     return new Promise((resolve, reject) => {
       db.serialize(() => {
-        // Disable foreign key constraints temporarily
-        db.run("PRAGMA foreign_keys = OFF", (pragmaErr) => {
-          if (pragmaErr) return reject(pragmaErr);
+        db.run("BEGIN TRANSACTION", (beginErr) => {
+          if (beginErr) return reject(beginErr);
 
-          db.run("BEGIN TRANSACTION", (beginErr) => {
-            if (beginErr) {
-              db.run("PRAGMA foreign_keys = ON", () => {});
-              return reject(beginErr);
+          // Clear game + transaction history (but keep users, groups, rewards, etc.)
+          // Include all FK-related tables in a single TRUNCATE to avoid constraint issues.
+          db.run("TRUNCATE TABLE game_participants, transactions, games RESTART IDENTITY", (truncateErr) => {
+            if (truncateErr) {
+              db.run("ROLLBACK", () => {});
+              return reject(truncateErr);
             }
 
-            // Delete all data from all tables in correct order
-            db.run("DELETE FROM game_participants", (err) => {
-              if (err) {
-                db.run("ROLLBACK", () => {
-                  db.run("PRAGMA foreign_keys = ON", () => {});
-                });
-                return reject(err);
+            // Reset all users balance back to 250
+            db.run("UPDATE users SET balance = 250", (usersErr) => {
+              if (usersErr) {
+                db.run("ROLLBACK", () => {});
+                return reject(usersErr);
               }
 
-              db.run("DELETE FROM games", (err) => {
-                if (err) {
-                  db.run("ROLLBACK", () => {
-                    db.run("PRAGMA foreign_keys = ON", () => {});
-                  });
-                  return reject(err);
+              // Reset pot back to 0 (since we cleared history). Ensure id=1 exists.
+              db.run(
+                "INSERT INTO pot (id, balance, updated_at) VALUES (1, 0, CURRENT_TIMESTAMP) ON CONFLICT (id) DO UPDATE SET balance = EXCLUDED.balance, updated_at = EXCLUDED.updated_at",
+                (potErr) => {
+                if (potErr) {
+                  db.run("ROLLBACK", () => {});
+                  return reject(potErr);
                 }
 
-                db.run("DELETE FROM transactions", (err) => {
-                  if (err) {
-                    db.run("ROLLBACK", () => {
-                      db.run("PRAGMA foreign_keys = ON", () => {});
-                    });
-                    return reject(err);
+                db.run("COMMIT", (commitErr) => {
+                  if (commitErr) {
+                    db.run("ROLLBACK", () => {});
+                    return reject(commitErr);
                   }
-
-                  db.run("DELETE FROM users", (err) => {
-                    if (err) {
-                      db.run("ROLLBACK", () => {
-                        db.run("PRAGMA foreign_keys = ON", () => {});
-                      });
-                      return reject(err);
-                    }
-
-                    db.run("DELETE FROM pot", (err) => {
-                      if (err) {
-                        db.run("ROLLBACK", () => {
-                          db.run("PRAGMA foreign_keys = ON", () => {});
-                        });
-                        return reject(err);
-                      }
-
-                      // Reset pot to initial state
-                      db.run("INSERT INTO pot (id, balance) VALUES (1, 0)", (err) => {
-                        if (err) {
-                          db.run("ROLLBACK", () => {
-                            db.run("PRAGMA foreign_keys = ON", () => {});
-                          });
-                          return reject(err);
-                        }
-
-                        db.run("COMMIT", (commitErr) => {
-                          if (commitErr) {
-                            db.run("ROLLBACK", () => {
-                              db.run("PRAGMA foreign_keys = ON", () => {});
-                            });
-                            return reject(commitErr);
-                          }
-
-                          // Re-enable foreign keys
-                          db.run("PRAGMA foreign_keys = ON", (pragmaErr) => {
-                            if (pragmaErr) {
-                              console.error("Error re-enabling foreign keys:", pragmaErr);
-                            }
-                            resolve({ message: 'Database flushed successfully' });
-                          });
-                        });
-                      });
-                    });
-                  });
+                  resolve({ message: 'Database flushed successfully' });
                 });
-              });
+              }
+              );
             });
           });
         });

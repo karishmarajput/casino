@@ -23,6 +23,17 @@ function Rewards() {
   const [message, setMessage] = useState('');
   const [messageStatus, setMessageStatus] = useState('error');
 
+  const totalRewards = rewards.reduce((sum, r) => sum + (Number(r?.quantity) || 0), 0);
+  const totalCost = rewards.reduce((sum, r) => {
+    const price = Number(r?.price) || 0;
+    const quantity = Number(r?.quantity) || 0;
+    return sum + (price * quantity);
+  }, 0);
+  const formatCurrency = (value) => {
+    const num = Number(value) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  };
+
   useEffect(() => {
     fetchRewards();
   }, []);
@@ -204,8 +215,18 @@ function Rewards() {
             </button>
           </div>
         ) : (
-          <div style={{ marginBottom: '1rem' }}>
-            <button onClick={handleCreate} className="create-btn">
+          <div className="rewards-topbar">
+            <div className="rewards-stats">
+              <div className="rewards-stat-card">
+                <div className="rewards-stat-label">Total Rewards</div>
+                <div className="rewards-stat-value">{totalRewards}</div>
+              </div>
+              <div className="rewards-stat-card">
+                <div className="rewards-stat-label">Total Cost</div>
+                <div className="rewards-stat-value">₵{formatCurrency(totalCost)}</div>
+              </div>
+            </div>
+            <button onClick={handleCreate} className="create-btn rewards-add-btn">
               + Add Reward
             </button>
           </div>
